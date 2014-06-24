@@ -1453,6 +1453,9 @@ static rpmRC rpmtsSetupTransactionPlugins(rpmts ts)
      * currently but that's not a new issue.
      */
 
+    if (rpmtsFlags(ts) & RPMTRANS_FLAG_NOPLUGINS)
+ 	return RPMRC_OK;
+
     dsoPath = rpmExpand("%{__plugindir}/*.so", NULL);
     if (rpmGlob(dsoPath, &nfiles, &files) == 0) {
 	rpmPlugins tsplugins = rpmtsPlugins(ts);
