@@ -1443,29 +1443,29 @@ static int rpmtsProcess(rpmts ts)
 static rpmRC rpmtsSetupTransactionPlugins(rpmts ts)
 {
     rpmRC rc = RPMRC_OK;
-    char *plugins = NULL, *plugin = NULL;
-    const char *delims = ",";
+    ARGV_t files = NULL;
+    int nfiles = 0;
+    char *dsoPath = NULL;
 
-    plugins = rpmExpand("%{?__transaction_plugins}", NULL);
-    if (!plugins || rstreq(plugins, "")) {
-	goto exit;
-    }
+    /*
+     * Assume allocated equals initialized. There are some oddball cases
+     * (verification of non-installed package) where this is not true
+     * currently but that's not a new issue.
+     */
 
-    plugin = strtok(plugins, delims);
-    while(plugin != NULL) {
-	rpmlog(RPMLOG_DEBUG, "plugin is %s\n", plugin);
-	if (!rpmpluginsPluginAdded(ts->plugins, (const char*)plugin)) {
-	    if (rpmpluginsAddPlugin(ts->plugins, "transaction",
-				    (const char*)plugin) == RPMRC_FAIL) {
-		/* any configured plugin failing to load is a failure */
+    dsoPath = rpmExpand("%{__plugindir}/*.so", NULL);
+    if (rpmGlob(dsoPath, &nfiles, &files) == 0) {
+	rpmPlugins tsplugins = rpmtsPlugins(ts);
+	for (int i = 0; i < nfiles; i++) {
+	    char *bn = basename(files[i]);
+	    bn[strlen(bn)-strlen(".so")] = '\0';
+	    if (rpmpluginsAddPlugin(tsplugins, "transaction", bn) == RPMRC_FAIL)
 		rc = RPMRC_FAIL;
-	    }
 	}
-	plugin = strtok(NULL, delims);
+	files = argvFree(files);
     }
+    free(dsoPath);
 
-exit:
-    free(plugins);
     return rc;
 }
 
