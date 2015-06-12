@@ -4,6 +4,7 @@
 
 #include "system.h"
 #include <stdarg.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <rpm/rpmlog.h>
 #include "debug.h"
@@ -128,13 +129,13 @@ static int rpmlogDefault(rpmlogRec rec)
         break;
     }
 
-    if (fputs(rpmlogLevelPrefix(rec->pri), msgout) == EOF)
+    if (fputs(rpmlogLevelPrefix(rec->pri), msgout) == EOF && errno != EPIPE)
 	perror("Error occurred during writing of a log message");
 
-    if (fputs(rec->message, msgout) == EOF)
+    if (fputs(rec->message, msgout) == EOF && errno != EPIPE)
 	perror("Error occurred during writing of a log message");
 
-    if (fflush(msgout) == EOF)
+    if (fflush(msgout) == EOF && errno != EPIPE)
 	perror("Error occurred during writing of a log message");
 
     return (rec->pri <= RPMLOG_CRIT ? RPMLOG_EXIT : 0);
