@@ -727,12 +727,17 @@ static int expandRegular(FSM_t fsm, rpmpsm psm, rpmcpio_t archive, int nodigest)
 {
     FD_t wfd = NULL;
     const struct stat * st = &fsm->sb;
-    rpm_loff_t left = st->st_size;
+    rpm_loff_t left = rpmfiFSizeIndex(fsmGetFi(fsm), fsm->ix);
     const unsigned char * fidigest = NULL;
     pgpHashAlgo digestalgo = 0;
     int rc = 0;
 
-    wfd = Fopen(fsm->path, "w.ufdio");
+    /* Create the file with 000 permissions. */
+    {
+	mode_t old_umask = umask(0777);
+	wfd = Fopen(fsm->path, "w.ufdio");
+	umask(old_umask);
+    }                      
     if (Ferror(wfd)) {
 	rc = CPIOERR_OPEN_FAILED;
 	goto exit;
