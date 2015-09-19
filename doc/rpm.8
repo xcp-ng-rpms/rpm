@@ -76,7 +76,7 @@ rpm \- RPM Package Manager
  [\fB--nodigest\fR] [\fB--nosignature\fR]
  [\fB--nolinkto\fR] [\fB--nofiledigest\fR] [\fB--nosize\fR] [\fB--nouser\fR]
  [\fB--nogroup\fR] [\fB--nomtime\fR] [\fB--nomode\fR] [\fB--nordev\fR]
- [\fB--nocaps\fR]
+ [\fB--nocaps\fR] [\fB--noconfig\fR]
 
 .SS "install-options"
 .PP
@@ -672,6 +672,9 @@ Don't verify package or header digests when reading.
 .TP
 \fB--nofiles\fR
 Don't verify any attributes of package files.
+.TP
+\fB--noconfig\fR
+Don't verify config files.
 .TP
 \fB--noscripts\fR
 Don't execute the \fB%verifyscript\fR scriptlet (if any).
