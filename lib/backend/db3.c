@@ -190,6 +190,7 @@ static int db_init(rpmdb rdb, const char * dbhome)
     dbenv->set_alloc(dbenv, rmalloc, rrealloc, NULL);
     dbenv->set_errcall(dbenv, NULL);
     dbenv->set_errpfx(dbenv, _errpfx);
+    dbenv->set_msgfile(dbenv, stderr);
 
     /* 
      * These enable automatic stale lock removal. 
