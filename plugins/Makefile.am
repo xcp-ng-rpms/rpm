@@ -24,3 +24,10 @@ sepolicy_la_LIBADD = $(top_builddir)/lib/librpm.la $(top_builddir)/rpmio/librpmi
 
 plugins_LTLIBRARIES += sepolicy.la
 endif
+
+if DBUS
+systemd_inhibit_la_SOURCES = systemd_inhibit.c
+systemd_inhibit_la_CPPFLAGS = $(AM_CPPFLAGS) @DBUS_CFLAGS@
+systemd_inhibit_la_LIBADD = $(top_builddir)/lib/librpm.la $(top_builddir)/rpmio/librpmio.la @DBUS_LIBS@
+plugins_LTLIBRARIES += systemd_inhibit.la
+endif

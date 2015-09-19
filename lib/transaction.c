@@ -22,6 +22,8 @@
 #include "lib/rpmts_internal.h"
 #include "rpmio/rpmhook.h"
 
+#include "lib/rpmplugins.h"
+
 /* XXX FIXME: merge with existing (broken?) tests in system.h */
 /* portability fiddles */
 #if STATFS_IN_SYS_STATVFS
@@ -1438,12 +1440,43 @@ static int rpmtsProcess(rpmts ts)
     return rc;
 }
 
+static rpmRC rpmtsSetupTransactionPlugins(rpmts ts)
+{
+    rpmRC rc = RPMRC_OK;
+    char *plugins = NULL, *plugin = NULL;
+    const char *delims = ",";
+
+    plugins = rpmExpand("%{?__transaction_plugins}", NULL);
+    if (!plugins || rstreq(plugins, "")) {
+	goto exit;
+    }
+
+    plugin = strtok(plugins, delims);
+    while(plugin != NULL) {
+	rpmlog(RPMLOG_DEBUG, "plugin is %s\n", plugin);
+	if (!rpmpluginsPluginAdded(ts->plugins, (const char*)plugin)) {
+	    if (rpmpluginsAddPlugin(ts->plugins, "transaction",
+				    (const char*)plugin) == RPMRC_FAIL) {
+		/* any configured plugin failing to load is a failure */
+		rc = RPMRC_FAIL;
+	    }
+	}
+	plugin = strtok(NULL, delims);
+    }
+
+exit:
+    free(plugins);
+    return rc;
+}
+
 int rpmtsRun(rpmts ts, rpmps okProbs, rpmprobFilterFlags ignoreSet)
 {
     int rc = -1; /* assume failure */
     tsMembers tsmem = rpmtsMembers(ts);
     rpmlock lock = NULL;
     rpmps tsprobs = NULL;
+    int TsmPreDone = 0; /* TsmPre hook hasn't been called */
+    
     /* Force default 022 umask during transaction for consistent results */
     mode_t oldmask = umask(022);
 
@@ -1465,10 +1498,20 @@ int rpmtsRun(rpmts ts, rpmps okProbs, rpmprobFilterFlags ignoreSet)
 	goto exit;
     }
 
+    if (rpmtsSetupTransactionPlugins(ts) == RPMRC_FAIL) {
+	goto exit;
+    }
+
     rpmtsSetupCollections(ts);
 
     /* Check package set for problems */
     tsprobs = checkProblems(ts);
+
+    /* Run pre transaction hook for all plugins */
+    TsmPreDone = 1;
+    if (rpmpluginsCallTsmPre(ts->plugins, ts) == RPMRC_FAIL) {
+	goto exit;
+    }
 
     /* Run pre-transaction scripts, but only if there are no known
      * problems up to this point and not disabled otherwise. */
@@ -1514,6 +1557,10 @@ int rpmtsRun(rpmts ts, rpmps okProbs, rpmprobFilterFlags ignoreSet)
     }
 
 exit:
+    /* Run post transaction hook for all plugins */
+    if (TsmPreDone) /* If TsmPre hook has been called, call the TsmPost hook */
+	rpmpluginsCallTsmPost(ts->plugins, ts, rc);
+
     /* Finish up... */
     (void) umask(oldmask);
     (void) rpmtsFinish(ts);
