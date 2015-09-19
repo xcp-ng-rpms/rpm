@@ -296,6 +296,9 @@ int rpmcpioHeaderRead(rpmcpio_t cpio, char ** path, struct stat * st)
     st->st_rdev = makedev(major, minor);
 
     GET_NUM_FIELD(hdr.namesize, nameSize);
+    if (nameSize <= 0 || nameSize > 4096) {
+        return CPIOERR_BAD_HEADER;
+    }
 
     *path = xmalloc(nameSize + 1);
     read = Fread(*path, nameSize, 1, cpio->fd);
