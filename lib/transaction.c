@@ -1170,10 +1170,11 @@ static rpmps checkProblems(rpmts ts)
 static int runTransScripts(rpmts ts, pkgGoal goal) 
 {
     int rc = 0;
+    int i = 0;
     rpmte p;
     rpmtsi pi = rpmtsiInit(ts);
     while ((p = rpmtsiNext(pi, TR_ADDED)) != NULL) {
-	rc += rpmteProcess(p, goal);
+	rc += rpmteProcess(p, goal, i++);
     }
     rpmtsiFree(pi);
     return rc;
@@ -1415,7 +1416,6 @@ exit:
 static int rpmtsProcess(rpmts ts)
 {
     rpmtsi pi;	rpmte p;
-    tsMembers tsmem = rpmtsMembers(ts);
     int rc = 0;
     int i = 0;
 
@@ -1423,8 +1423,6 @@ static int rpmtsProcess(rpmts ts)
     while ((p = rpmtsiNext(pi, 0)) != NULL) {
 	int failed;
 
-	rpmtsNotify(ts, NULL, RPMCALLBACK_ELEM_PROGRESS, i++,
-		tsmem->orderCount);
 	rpmlog(RPMLOG_DEBUG, "========== +++ %s %s-%s 0x%x\n",
 		rpmteNEVR(p), rpmteA(p), rpmteO(p), rpmteColor(p));
 
@@ -1432,7 +1430,7 @@ static int rpmtsProcess(rpmts ts)
 	    rpmtsSELabelInit(ts, 0);
 	}
 
-	failed = rpmteProcess(p, rpmteType(p));
+	failed = rpmteProcess(p, rpmteType(p), i++);
 	if (failed) {
 	    rpmlog(RPMLOG_ERR, "%s: %s %s\n", rpmteNEVRA(p),
 		   rpmteTypeString(p), failed > 1 ? _("skipped") : _("failed"));

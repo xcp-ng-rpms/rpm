@@ -939,7 +939,7 @@ static rpmRC rpmteRunAllCollections(rpmte te, rpmPluginHook hook)
     return rc;
 }
 
-int rpmteProcess(rpmte te, pkgGoal goal)
+int rpmteProcess(rpmte te, pkgGoal goal, int num)
 {
     /* Only install/erase resets pkg file info */
     int scriptstage = (goal != PKG_INSTALL && goal != PKG_ERASE);
@@ -959,6 +959,11 @@ int rpmteProcess(rpmte te, pkgGoal goal)
     }
 
     if (rpmteOpen(te, reset_fi)) {
+	if (!scriptstage) {
+	    rpmtsNotify(te->ts, te, RPMCALLBACK_ELEM_PROGRESS, num,
+			rpmtsMembers(te->ts)->orderCount);
+	}
+
 	failed = rpmpsmRun(te->ts, te, goal);
 	rpmteClose(te, reset_fi);
     }
