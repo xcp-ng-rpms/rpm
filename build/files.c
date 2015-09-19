@@ -1352,6 +1352,12 @@ static rpmRC addFile(FileList fl, const char * diskPath,
 	    if (fl->def.ar.ar_dmodestr) {
 		fileMode &= S_IFMT;
 		fileMode |= fl->def.ar.ar_dmode;
+	    } else if (fl->def.ar.ar_fmodestr){
+		rpmlog(RPMLOG_WARNING, _("%%defattr doesn't define directory "
+		    "mode so file mode defined in %%defattr is used for "
+		    "directory: %s\n"), diskPath);
+		fileMode &= S_IFMT;
+		fileMode |= fl->def.ar.ar_fmode;
 	    }
 	} else if (!S_ISLNK(fileMode) && fl->def.ar.ar_fmodestr) {
 	    fileMode &= S_IFMT;
