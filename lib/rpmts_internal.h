@@ -86,6 +86,11 @@ rpmstrPool rpmtsPool(rpmts ts);
 RPM_GNUC_INTERNAL
 tsMembers rpmtsMembers(rpmts ts);
 
+/* Return rpmdb iterator with removals optionally pruned out */
+RPM_GNUC_INTERNAL
+rpmdbMatchIterator rpmtsPrunedIterator(rpmts ts, rpmDbiTagVal tag,
+					      const char * key, int prune);
+
 RPM_GNUC_INTERNAL
 rpmal rpmtsCreateAl(rpmts ts, rpmElementTypes types);
 
@@ -117,6 +122,9 @@ rpmRC rpmtsSELabelInit(rpmts ts, int open_status);
  * @param close_status  whether we should close selinux status
  */
 void rpmtsSELabelFini(rpmts ts, int close_status);
+
+RPM_GNUC_INTERNAL
+rpmRC rpmtsSetupTransactionPlugins(rpmts ts);
 
 #ifdef __cplusplus
 }

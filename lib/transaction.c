@@ -1138,7 +1138,7 @@ static rpmps checkProblems(rpmts ts)
 	if (!(probFilter & RPMPROB_FILTER_REPLACEPKG)) {
 	    Header h;
 	    rpmdbMatchIterator mi;
-	    mi = rpmtsInitIterator(ts, RPMDBI_NAME, rpmteN(p), 0);
+	    mi = rpmtsPrunedIterator(ts, RPMDBI_NAME, rpmteN(p), 1);
 	    rpmdbSetIteratorRE(mi, RPMTAG_EPOCH, RPMMIRE_STRCMP, rpmteE(p));
 	    rpmdbSetIteratorRE(mi, RPMTAG_VERSION, RPMMIRE_STRCMP, rpmteV(p));
 	    rpmdbSetIteratorRE(mi, RPMTAG_RELEASE, RPMMIRE_STRCMP, rpmteR(p));
@@ -1442,7 +1442,7 @@ static int rpmtsProcess(rpmts ts)
     return rc;
 }
 
-static rpmRC rpmtsSetupTransactionPlugins(rpmts ts)
+rpmRC rpmtsSetupTransactionPlugins(rpmts ts)
 {
     rpmRC rc = RPMRC_OK;
     ARGV_t files = NULL;

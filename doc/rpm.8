@@ -110,7 +110,7 @@ packages.
 One of the following basic modes must be selected:
 \fBQuery\fR,
 \fBVerify\fR,
-\fBInstall/Upgrade/Freshen\fR,
+\fBInstall/Upgrade/Freshen/Reinstall\fR,
 \fBUninstall\fR,
 \fBSet Owners/Groups\fR,
 \fBShow Querytags\fR, and
@@ -205,6 +205,13 @@ new package is installed.
 .PP
 This will upgrade packages, but only ones for which an earlier version is
 installed.
+.PP
+The general form of an rpm reinstall command is 
+.PP
+\fBrpm\fR {\fB--reinstall\fR} [\fBinstall-options\fR] \fB\fIPACKAGE_FILE\fB\fR\fI ...\fR
+.PP
+This reinstalls a previously installed package.
+.PP
 .PP
 .TP
 \fB--allfiles\fR
