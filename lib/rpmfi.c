@@ -608,6 +608,12 @@ rpmFileAction rpmfiDecideFateIndex(rpmfi ofi, int oix, rpmfi nfi, int nix,
 	        goto exit;		/* file identical in new, replace. */
 	}
 
+	/* if new file is no longer config, backup it and replace it */
+	if (!(newFlags & RPMFILE_CONFIG)) {
+	    action = FA_SAVE;
+	    goto exit;
+	}
+
 	/* If file can be determined identical in old and new pkg, let it be */
 	if (newWhat == REG && oalgo == nalgo && odiglen == ndiglen) {
 	    if (odigest && ndigest && memcmp(odigest, ndigest, odiglen) == 0) {
@@ -637,6 +643,12 @@ rpmFileAction rpmfiDecideFateIndex(rpmfi ofi, int oix, rpmfi nfi, int nix,
 	if (diskWhat == LINK && newWhat == LINK) {
 	    if (nFLink && rstreq(nFLink, buffer))
 		goto exit;		/* unmodified config file, replace. */
+	}
+
+	/* if new file is no longer config, backup it and replace it */
+	if (!(newFlags & RPMFILE_CONFIG)) {
+	    action = FA_SAVE;
+	    goto exit;
 	}
 
 	/* If link is identical in old and new pkg, let it be */
