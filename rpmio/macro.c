@@ -1267,6 +1267,21 @@ int expandMacros(void * spec, rpmMacroContext mc, char * sbuf, size_t slen)
     return rc;
 }
 
+char *expandMacrosU(void * spec, rpmMacroContext mc, char * sbuf)
+{
+    char *target = NULL;
+    int rc;
+
+    rc = doExpandMacros(mc, sbuf, &target);
+
+    if (rc) {
+	free(target);
+	target = NULL;
+    }
+
+    return target;
+}
+
 void
 addMacro(rpmMacroContext mc,
 	const char * n, const char * o, const char * b, int level)
