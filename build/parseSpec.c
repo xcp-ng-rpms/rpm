@@ -204,11 +204,17 @@ static int copyNextLineFromOFI(rpmSpec spec, OFI_t *ofi)
 	spec->lbufOff = 0;
 
 	/* Don't expand macros (eg. %define) in false branch of %if clause */
-	if (spec->readStack->reading &&
-	    expandMacros(spec, spec->macros, spec->lbuf, spec->lbufSize)) {
-		rpmlog(RPMLOG_ERR, _("line %d: %s\n"),
-			spec->lineNum, spec->lbuf);
-		return -1;
+	if (spec->readStack->reading) {
+		char* lbuf = spec->lbuf;
+		if ((spec->lbuf = expandMacrosU(spec, spec->macros, lbuf)) == NULL) {
+			rpmlog(RPMLOG_ERR, _("line %d: %s\n"),
+			       spec->lineNum, lbuf);
+			free(lbuf);
+			return -1;
+		} else {
+			spec->lbufSize = strlen(spec->lbuf) + 1;
+			free(lbuf);
+		}
 	}
 	spec->nextline = spec->lbuf;
     }
