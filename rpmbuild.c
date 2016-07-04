@@ -13,6 +13,7 @@ const char *__progname;
 #include <rpm/rpmdb.h>
 #include <rpm/rpmps.h>
 #include <rpm/rpmts.h>
+#include "build/rpmbuild_internal.h"
 #include "lib/signature.h"
 #include "cliutils.h"
 
@@ -456,6 +457,36 @@ static int buildForTarget(rpmts ts, const char * arg, BTA_t ba)
 
     if (rpmSpecBuild(spec, ba)) {
 	goto exit;
+    }
+    /* Output generated package files for the --sign alias */
+    if (quiet && rpmcliPipeOutput &&
+	strncmp(rpmcliPipeOutput, "rpm --addsign", 13)) {
+	rpmSetVerbosity(RPMLOG_INFO);
+	if (buildAmount&RPMBUILD_PACKAGESOURCE) {
+	    char *fn = rpmGetPath("%{_srcrpmdir}/", spec->sourceRpmName,NULL);
+	    rpmlog(RPMLOG_INFO, _("Wrote: %s\n"), fn);
+	    fn = _free(fn);
+	}
+	if (buildAmount&RPMBUILD_PACKAGEBINARY) {
+	    rpmSpecPkgIter pkgiter = rpmSpecPkgIterInit(spec);
+	    for (rpmSpecPkg pkg = rpmSpecPkgIterNext(pkgiter);
+		 pkg;
+		 pkg = rpmSpecPkgIterNext(pkgiter)) {
+		char *binFormat = rpmGetPath("%{_rpmfilename}", NULL);
+		char *binRpm, *fn;
+		const char *errorString;
+		Header h = rpmSpecPkgHeader(pkg);
+		if (h) {
+		    binRpm = headerFormat(h, binFormat, &errorString);
+		    fn = rpmGetPath("%{_rpmdir}/", binRpm, NULL);
+		    free(binRpm);
+		    rpmlog(RPMLOG_INFO, _("Wrote: %s\n"), fn);
+		    free(fn);
+		}
+		free(binFormat);
+	    }
+	}
+	rpmSetVerbosity(RPMLOG_WARNING);
     }
     
     if (buildMode == 't')
