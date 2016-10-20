@@ -394,6 +394,7 @@ static PyObject *hdr_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 	h = headerNew();
     } else if (CAPSULE_CHECK(obj)) {
 	h = CAPSULE_EXTRACT(obj, "rpm._C_Header");
+	headerLink(h);
     } else if (hdrObject_Check(obj)) {
 	h = headerCopy(((hdrObject*) obj)->h);
     } else if (PyBytes_Check(obj)) {
@@ -729,8 +730,7 @@ PyObject * hdr_Wrap(PyTypeObject *subtype, Header h)
 {
     hdrObject * hdr = (hdrObject *)subtype->tp_alloc(subtype, 0);
     if (hdr == NULL) return NULL;
-
-    hdr->h = headerLink(h);
+    hdr->h = h;
     return (PyObject *) hdr;
 }
 
