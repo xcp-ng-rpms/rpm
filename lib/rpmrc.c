@@ -712,6 +712,31 @@ exit:
     return rc;
 }
 
+#if defined(__linux__) && defined(__sparc__)
+static int is_sun4v()
+{
+	char buffer[4096], *p;
+	int fd = open("/proc/cpuinfo", O_RDONLY);
+	if (read(fd, &buffer, sizeof(buffer) - 1) == -1) {
+		rpmlog(RPMLOG_WARNING, _("read(/proc/cpuinfo) failed\n"));
+		close(fd);
+		return 0;
+	}
+	close(fd);
+
+	p = strstr(buffer, "type");
+	p = strtok(p, "\n");
+	p = strstr(p, "sun");
+	if (p == NULL) {
+		rpmlog(RPMLOG_WARNING, _("/proc/cpuinfo has no 'type' line\n"));
+		return 0;
+	} else if (strcmp(p, "sun4v") == 0) {
+		return 1;
+	}
+	return 0;
+}
+#endif
+
 #if defined(__linux__) && defined(__arm__)
 static int has_neon()
 {
@@ -759,31 +784,6 @@ static int has_hfp()
                 return 1;
         }
         return 0;
-}
-#endif
-
-#if defined(__linux__) && defined(__sparc__)
-static int is_sun4v()
-{
-	char buffer[4096], *p;
-	int fd = open("/proc/cpuinfo", O_RDONLY);
-	if (read(fd, &buffer, sizeof(buffer) - 1) == -1) {
-		rpmlog(RPMLOG_WARNING, _("read(/proc/cpuinfo) failed\n"));
-		close(fd);
-		return 0;
-	}
-	close(fd);
-
-	p = strstr(buffer, "type");
-	p = strtok(p, "\n");
-	p = strstr(p, "sun");
-	if (p == NULL) {
-		rpmlog(RPMLOG_WARNING, _("/proc/cpuinfo has no 'type' line\n"));
-		return 0;
-	} else if (strcmp(p, "sun4v") == 0) {
-		return 1;
-	}
-	return 0;
 }
 #endif
 
