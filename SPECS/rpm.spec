@@ -21,7 +21,7 @@
 Summary: The RPM package management system
 Name: rpm
 Version: %{rpmver}
-Release: %{?snapver:0.%{snapver}.}32%{?dist}
+Release: %{?snapver:0.%{snapver}.}32.1%{?dist}
 Group: System Environment/Base
 Url: http://www.rpm.org/
 Source0: http://rpm.org/releases/rpm-4.11.x/%{name}-%{srcver}.tar.bz2
@@ -129,6 +129,12 @@ Patch502: rpm-4.13.x-RPMCALLBACK_ELEM_PROGRESS-available-header.patch
 # Backport of reinstall functionality from 4.12
 # https://bugzilla.redhat.com/show_bug.cgi?id=1466650
 Patch503: rpm-4.11.x-reinstall.patch
+
+# XCP-ng patches
+
+# Backport of size limit removal on expanding macros
+# Origin: https://github.com/rpm-software-management/rpm/commit/61838b0fdacb71a881baac164043b8e40ddfbec5
+Patch1001: 0001-Remove-size-limit-when-expanding-macros.patch
 
 # Partially GPL/LGPL dual-licensed and some bits with BSD
 # SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD 
@@ -388,6 +394,9 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 %patch502 -p1 -b .elem-progress-header
 %patch503 -p1 -b .reinstall
 
+%patch1001 -p1 -b .no-macro-size-limit
+
+
 %if %{with int_bdb}
 ln -s db-%{bdbver} db
 %endif
@@ -618,6 +627,9 @@ exit 0
 %doc COPYING doc/librpm/html/*
 
 %changelog
+* Thu Mar 26 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
+- Backport size limit remove on macros
+
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
 
