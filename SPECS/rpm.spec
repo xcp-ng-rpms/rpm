@@ -21,7 +21,7 @@
 Summary: The RPM package management system
 Name: rpm
 Version: %{rpmver}
-Release: %{?snapver:0.%{snapver}.}32%{?dist}
+Release: %{?snapver:0.%{snapver}.}48%{?dist}
 Group: System Environment/Base
 Url: http://www.rpm.org/
 Source0: http://rpm.org/releases/rpm-4.11.x/%{name}-%{srcver}.tar.bz2
@@ -88,10 +88,25 @@ Patch185: rpm-4.13.x-Make-the-stftime-buffer-big-enuff.patch
 Patch186: rpm-4.11.x-skipattr.patch
 Patch187: rpm-4.13.x-Implement-noconfig-query.patch
 Patch188: rpm-4.11.x-weakdep-tags.patch
+Patch189: rpm-4.12.x-rpmSign-return-value-correction.patch
+Patch190: rpm-4.13.x-fix_find_debuginfo_opts_g.patch
+Patch191: rpm-4.13.x-enable_noghost_option.patch
+Patch192: rpm-4.11.x-provide-audit-events.patch
+Patch193: rpm-4.11.x-setcaps.patch
+Patch194: rpm-4.11.x-disk-space-calculation.patch
+Patch195: rpm-4.11.x-remove-perl-provides-from-requires.patch
+Patch196: rpm-4.13.x-bad-owner-group.patch
+Patch197: rpm-4.11.x-perl.req-6.patch
+Patch198: rpm-4.13.x-fix-segfault-on-fingerprint-symlink.patch
+Patch199: rpm-4.11.x-dependson.patch
 
 # Filter soname dependencies by name
 Patch200: rpm-4.11.x-filter-soname-deps.patch
 Patch201: rpm-4.11.x-do-not-filter-ld64.patch
+
+Patch202: rpm-4.14.x-PGP-handle-no-EOL-at-EOF.patch
+Patch203: rpm-4.11.x-bump-up-the-limit-of-signature-header-to-64MB.patch
+Patch204: rpm-4.11.x-improve-sig-header-range-checks.patch
 
 # These are not yet upstream
 Patch301: rpm-4.6.0-niagara.patch
@@ -114,6 +129,7 @@ Patch312: rpm-4.11.x-man-systemd-inhibit.patch
 Patch313: rpm-4.11.x-quiet-signing.patch
 Patch314: rpm-4.11.x-export-verifysigs-to-python.patch
 
+
 # Temporary Patch to provide support for updates
 Patch400: rpm-4.10.90-rpmlib-filesystem-check.patch
 # Disable plugins
@@ -129,6 +145,14 @@ Patch502: rpm-4.13.x-RPMCALLBACK_ELEM_PROGRESS-available-header.patch
 # Backport of reinstall functionality from 4.12
 # https://bugzilla.redhat.com/show_bug.cgi?id=1466650
 Patch503: rpm-4.11.x-reinstall.patch
+Patch504: rpm-4.11.x-add-g-libs.patch
+
+# Fix brp-python-bytecompile script to work with Python 3 packages
+# https://bugzilla.redhat.com/show_bug.cgi?id=1691402
+# Fixed upstream:
+# https://github.com/rpm-software-management/rpm/commit/a8e51b3bb05c6acb1d9b2e3d34f859ddda1677be
+Patch505: rpm-4.11.3-brp-python-bytecompile-Fix-when-default-python-is-no.patch
+Patch506: rpm-4.11.x-correct-g-libs.patch
 
 # Partially GPL/LGPL dual-licensed and some bits with BSD
 # SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD 
@@ -179,6 +203,7 @@ BuildRequires: xz-devel >= 4.999.8
 # Required for systemd-inhibit plugin
 BuildRequires: dbus-devel
 %endif
+BuildRequires: audit-libs-devel
 
 # Only required by sepdebugcrcfix patch
 BuildRequires: binutils-devel
@@ -356,9 +381,24 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 %patch186 -p1 -b .skipattr
 %patch187 -p1 -b .noconfig-cli
 %patch188 -p1 -b .weakdep-tags
+%patch189 -p1 -b .rpmsign-error
+%patch190 -p1 -b .find_debuginfo_opts
+%patch191 -p1 -b .noghost
+%patch192 -p1 -b .audit-events
+%patch193 -p1 -b .setcaps
+%patch194 -p1 -b .diskspace
+%patch195 -p1 -b .perl.req5
+%patch196 -p1 -b .badowner
+%patch197 -p1 -b .perl.req6
+%patch198 -p1 -b .sf_fingerprint
+%patch199 -p1 -b .dependson
 
 %patch200 -p1 -b .filter-soname-deps
 %patch201 -p1 -b .dont-filter-ld64
+
+%patch202 -p1 -b .PGP-no-EOL
+%patch203 -p1 -b .sig-limit-bump
+%patch204 -p1 -b .sig-hdr-check
 
 %patch301 -p1 -b .niagara
 %patch302 -p1 -b .geode
@@ -387,6 +427,9 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 %patch501 -p1 -b .elem-progress
 %patch502 -p1 -b .elem-progress-header
 %patch503 -p1 -b .reinstall
+%patch504 -p1 -b .g-libs
+%patch505 -p1 -b .brp-python-bytecompile
+%patch506 -p1 -b .fix-g-libs
 
 %if %{with int_bdb}
 ln -s db-%{bdbver} db
@@ -618,6 +661,61 @@ exit 0
 %doc COPYING doc/librpm/html/*
 
 %changelog
+* Mon Nov 01 2021 Michal Domonkos <mdomonko@redhat.com> - 4.11.3-48
+- Fix double-free in previously added patch (#2004228)
+
+* Thu Oct 21 2021 Michal Domonkos <mdomonko@redhat.com> - 4.11.3-47
+- Improve range checks on signature and main header tags (#2004228)
+- Fixes CVE-2021-20271
+
+* Fri Sep 17 2021 Michal Domonkos <mdomonko@redhat.com> - 4.11.3-46
+- Bump up the limit of signature header to 64MB (#1993242)
+
+* Tue Jun 02 2020 Michal Domonkos <mdomonko@redhat.com> - 4.11.3-45
+- Actually apply the previous patch
+
+* Wed May 27 2020 Michal Domonkos <mdomonko@redhat.com> - 4.11.3-44
+- Accept PGP public keys with missing EOL (#1840006)
+
+* Fri Oct 04 2019 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-43
+- Fix packages getting removed on failed update via dnf (#1710691)
+
+* Wed Aug 21 2019 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-42
+- Fix segfault on fingerprint symlink (#1660232)
+
+* Fri Aug 16 2019 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-41
+- Fix bogus if-condition in find-debuginfo.sh (#1720590)
+
+* Sun May 26 2019 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-40
+- Remove only special perl dependencies provided in the same file (#1570181)
+
+* Thu Mar 21 2019 Tomas Orsava <torsava@redhat.com> - 4.11.3-39
+- Fix brp-python-bytecompile script to work with Python 3 packages (#1691402)
+
+* Thu Mar 21 2019 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-38
+- Add flag to use strip -g instead of full strip on DSOs (#1663264)
+
+* Wed Mar 20 2019 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-37
+- Use user and group of the rpmbuild process or root for sources (#1572772)
+
+* Thu Feb 28 2019 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-36
+- Add popt-based options --setcaps and --restore (#1550745)
+- Improve hardlink handling in disk space calculation (#1491786)
+- Remove perl dependencies that are provided in the same file (#1570181)
+
+* Tue Jun 19 2018 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-35
+- Correct "root_dir" output in audit event (#1555326)
+
+* Fri May 25 2018 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-34
+- Adjust --noghost documentation (#1395818)
+- Provide audit events on update verification (#1555326)
+
+* Thu May 10 2018 Pavlina Moravcova Varekova <pmoravco@redhat.com> - 4.11.3-33
+- Repair of --noghost option implementation (#1395818)
+- Backport fix rpmSign() return value in case of failure (#1419590)
+- Backport passing _find_debuginfo_opts -g to eu-strip for executables
+  (#1540653)
+
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
 
