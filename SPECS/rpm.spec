@@ -9,6 +9,11 @@
 
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 
+# Python3 is default
+%if 0%{?__python:1}
+%define __python /usr/bin/python2
+%endif
+
 %define rpmhome /usr/lib/rpm
 
 %define rpmver 4.11.3
@@ -21,7 +26,7 @@
 Summary: The RPM package management system
 Name: rpm
 Version: %{rpmver}
-Release: %{?snapver:0.%{snapver}.}32.1%{?dist}
+Release: %{?snapver:0.%{snapver}.}32.2%{?dist}
 Group: System Environment/Base
 Url: http://www.rpm.org/
 Source0: http://rpm.org/releases/rpm-4.11.x/%{name}-%{srcver}.tar.bz2
@@ -135,7 +140,7 @@ Patch503: rpm-4.11.x-reinstall.patch
 Patch1001: 0001-Remove-size-limit-when-expanding-macros.patch
 
 # Partially GPL/LGPL dual-licensed and some bits with BSD
-# SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD 
+# SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD
 License: GPLv2+
 
 Requires: coreutils
@@ -153,6 +158,8 @@ BuildRequires: %{bdbname}-devel
 %if %{with check}
 BuildRequires: fakechroot
 %endif
+
+BuildRequires: gcc
 
 # XXX generally assumed to be installed but make it explicit as rpm
 # is a bit special...
@@ -314,86 +321,85 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 
 %prep
 %setup -q -n %{name}-%{srcver} %{?with_int_bdb:-a 1}
-%patch2 -p1 -b .fedora-specspo
-%patch3 -p1 -b .no-man-dirs
-%patch4 -p1 -b .use-gpg2
+%patch -P2 -p1 -b .fedora-specspo
+%patch -P3 -p1 -b .no-man-dirs
+%patch -P4 -p1 -b .use-gpg2
 
 %ifarch ppc64le
-%patch108 -p2 -b .ppc64le
+%patch -P108 -p2 -b .ppc64le
 %endif
 
-%patch150 -p1 -b .dirlink-verify
-%patch151 -p1 -b .defattr-permissions
-%patch152 -p1 -b .error-in-log
-%patch153 -p1 -b .setperms-setugids
-%patch154 -p1 -b .ignore-multiline2
-%patch155 -p1 -b .deprecate-addsign
-%patch156 -p1 -b .make-build
-%patch157 -p1 -b .skip-color
-%patch158 -p1 -b .strip-binaries
-%patch159 -p1 -b .debuginfo
-%patch160 -p1 -b .systemd-inihibit
-%patch161 -p1 -b .macro-expansion
-%patch162 -p1 -b .broken-pipe
-%patch163 -p1 -b .line-continuation
-%patch164 -p1 -b .plugin-detection
-%patch166 -p1 -b .move-rename
-%patch167 -p1 -b .bdb-warnings
-%patch168 -p1 -b .justdb-man
-%patch169 -p1 -b .mt_xz
-%patch170 -p1 -b .perl.req1
-%patch171 -p1 -b .perl.req2
-%patch172 -p1 -b .perl.req3
-%patch173 -p1 -b .perl.req4
-%patch174 -p1 -b .py_size
-%patch175 -p1 -b .py_size_test
-%patch176 -p1 -b .noplugins
-%patch177 -p1 -b .noconfig
-%patch178 -p1 -b .offbyone
-%patch179 -p1 -b .sourceslua
-%patch180 -p1 -b .hdrrefcnt
-%patch181 -p1 -b .perlblock
-%patch182 -p1 -b .verifysignature
-%patch183 -p1 -b .writable_tmp
-%patch184 -p1 -b .hdr_size
-%patch185 -p1 -b .strtime
-%patch186 -p1 -b .skipattr
-%patch187 -p1 -b .noconfig-cli
-%patch188 -p1 -b .weakdep-tags
+%patch -P150 -p1 -b .dirlink-verify
+%patch -P151 -p1 -b .defattr-permissions
+%patch -P152 -p1 -b .error-in-log
+%patch -P153 -p1 -b .setperms-setugids
+%patch -P154 -p1 -b .ignore-multiline2
+%patch -P155 -p1 -b .deprecate-addsign
+%patch -P156 -p1 -b .make-build
+%patch -P157 -p1 -b .skip-color
+%patch -P158 -p1 -b .strip-binaries
+%patch -P159 -p1 -b .debuginfo
+%patch -P160 -p1 -b .systemd-inihibit
+%patch -P161 -p1 -b .macro-expansion
+%patch -P162 -p1 -b .broken-pipe
+%patch -P163 -p1 -b .line-continuation
+%patch -P164 -p1 -b .plugin-detection
+%patch -P166 -p1 -b .move-rename
+%patch -P167 -p1 -b .bdb-warnings
+%patch -P168 -p1 -b .justdb-man
+%patch -P169 -p1 -b .mt_xz
+%patch -P170 -p1 -b .perl.req1
+%patch -P171 -p1 -b .perl.req2
+%patch -P172 -p1 -b .perl.req3
+%patch -P173 -p1 -b .perl.req4
+%patch -P174 -p1 -b .py_size
+%patch -P175 -p1 -b .py_size_test
+%patch -P176 -p1 -b .noplugins
+%patch -P177 -p1 -b .noconfig
+%patch -P178 -p1 -b .offbyone
+%patch -P179 -p1 -b .sourceslua
+%patch -P180 -p1 -b .hdrrefcnt
+%patch -P181 -p1 -b .perlblock
+%patch -P182 -p1 -b .verifysignature
+%patch -P183 -p1 -b .writable_tmp
+%patch -P184 -p1 -b .hdr_size
+%patch -P185 -p1 -b .strtime
+%patch -P186 -p1 -b .skipattr
+%patch -P187 -p1 -b .noconfig-cli
+%patch -P188 -p1 -b .weakdep-tags
 
-%patch200 -p1 -b .filter-soname-deps
-%patch201 -p1 -b .dont-filter-ld64
+%patch -P200 -p1 -b .filter-soname-deps
+%patch -P201 -p1 -b .dont-filter-ld64
 
-%patch301 -p1 -b .niagara
-%patch302 -p1 -b .geode
-%patch304 -p1 -b .ldflags
-%patch305 -p1 -b .dwz-debuginfo
-%patch306 -p1 -b .minidebuginfo
-%patch307 -p1 -b .sepdebugcrcfix
-%patch308 -p1 -b .minidebuginfo-ppc64
-%patch309 -p1 -b .chmod
-%patch310 -p1 -b .namesize
-%patch311 -p1 -b .config.guess
-%patch312 -p1 -b .man-inhibit
-%patch313 -p1 -b .quiet-sign
-%patch314 -p1 -b .verifysig
+%patch -P301 -p1 -b .niagara
+%patch -P302 -p1 -b .geode
+%patch -P304 -p1 -b .ldflags
+%patch -P305 -p1 -b .dwz-debuginfo
+%patch -P306 -p1 -b .minidebuginfo
+%patch -P307 -p1 -b .sepdebugcrcfix
+%patch -P308 -p1 -b .minidebuginfo-ppc64
+%patch -P309 -p1 -b .chmod
+%patch -P310 -p1 -b .namesize
+%patch -P311 -p1 -b .config.guess
+%patch -P312 -p1 -b .man-inhibit
+%patch -P313 -p1 -b .quiet-sign
+%patch -P314 -p1 -b .verifysig
 
-%patch400 -p1 -b .rpmlib-filesystem-check
-%patch401 -p1 -b .disable-collection-plugins
-%patch402 -p1 -b .remove-EVR-check
+%patch -P400 -p1 -b .rpmlib-filesystem-check
+%patch -P401 -p1 -b .disable-collection-plugins
+%patch -P402 -p1 -b .remove-EVR-check
 
-%patch5 -p1 -b .armhfp
+%patch -P5 -p1 -b .armhfp
 # this patch cant be applied on softfp builds
 %ifnarch armv3l armv4b armv4l armv4tl armv5tel armv5tejl armv6l armv7l
-%patch6 -p1 -b .armhfp-logic
+%patch -P6 -p1 -b .armhfp-logic
 %endif
 
-%patch501 -p1 -b .elem-progress
-%patch502 -p1 -b .elem-progress-header
-%patch503 -p1 -b .reinstall
+%patch -P501 -p1 -b .elem-progress
+%patch -P502 -p1 -b .elem-progress-header
+%patch -P503 -p1 -b .reinstall
 
-%patch1001 -p1 -b .no-macro-size-limit
-
+%patch -P1001 -p1 -b .no-macro-size-limit
 
 %if %{with int_bdb}
 ln -s db-%{bdbver} db
@@ -401,7 +407,7 @@ ln -s db-%{bdbver} db
 
 %build
 %if %{without int_bdb}
-#CPPFLAGS=-I%{_includedir}/db%{bdbver} 
+#CPPFLAGS=-I%{_includedir}/db%{bdbver}
 #LDFLAGS=-L%{_libdir}/db%{bdbver}
 %endif
 CPPFLAGS="$CPPFLAGS `pkg-config --cflags nss`"
@@ -502,7 +508,7 @@ make check
 dbstat=/usr/lib/rpm/rpmdb_stat
 if [ -x "$dbstat" ]; then
     if "$dbstat" -e -h /var/lib/rpm 2>&1 | grep -q "doesn't match library version \| Invalid argument"; then
-        rm -f /var/lib/rpm/__db.* 
+        rm -f /var/lib/rpm/__db.*
     fi
 fi
 exit 0
@@ -625,6 +631,11 @@ exit 0
 %doc COPYING doc/librpm/html/*
 
 %changelog
+* Thu Jun 04 2026 Philippe Coval <philippe.coval@vates.tech> - 4.11.3-32.2
+- Fix %%patch macro for compatibility with RPM 4.20 and above
+- Add gcc to BuildRequires
+- Fix unversioned python
+
 * Thu Mar 26 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
 - Backport size limit remove on macros
 
@@ -926,7 +937,7 @@ exit 0
 
 * Thu Mar 29 2012 Panu Matilainen <pmatilai@redhat.com> - 4.9.90-0.git11505.9
 - accept files as command line arguments to rpmdeps again (#807767)
- 
+
 * Mon Mar 26 2012 Panu Matilainen <pmatilai@redhat.com> - 4.9.90-0.git11505.8
 - remove fake library provide hacks now that deltarpm got rebuilt
 
@@ -1071,7 +1082,7 @@ exit 0
 * Tue Feb 15 2011 Panu Matilainen <pmatilai@redhat.com> - 4.9.0-0.rc1.1
 - update to 4.9.0-rc1
 - drop upstream patches
-- nss packaging has changed, buildrequire nss-softokn-freebl-devel 
+- nss packaging has changed, buildrequire nss-softokn-freebl-devel
 
 * Wed Feb 09 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.9.0-0.beta1.7.1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
@@ -1252,7 +1263,7 @@ exit 0
 - make disk space problem reporting a bit saner (#517418)
 
 * Tue Oct 06 2009 Panu Matilainen <pmatilai@redhat.com> - 4.7.1-7
-- fix build with BDB 4.8.x by removing XA "support" from BDB backend 
+- fix build with BDB 4.8.x by removing XA "support" from BDB backend
 - perl dep extractor heredoc parsing improvements (#524929)
 
 * Mon Sep 21 2009 Panu Matilainen <pmatilai@redhat.com> - 4.7.1-6
@@ -1472,12 +1483,12 @@ exit 0
 - permit tab as macro argument separator (#467567)
 
 * Thu Oct 16 2008 Panu Matilainen <pmatilai@redhat.com>
-- update to 4.6.0-rc1 
+- update to 4.6.0-rc1
 - fixes #465586, #466597, #465409, #216221, #466503, #466009, #463447...
 - avoid using %%configure macro for now, it has unwanted side-effects on rpm
 
 * Wed Oct 01 2008 Panu Matilainen <pmatilai@redhat.com>
-- update to official 4.5.90 alpha tarball 
+- update to official 4.5.90 alpha tarball
 - a big pile of misc bugfixes + translation updates
 - isa-macro generation fix for ppc (#464754)
 - avoid pulling in pile of perl dependencies for an unused script
