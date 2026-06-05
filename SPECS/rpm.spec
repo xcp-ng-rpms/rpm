@@ -131,11 +131,8 @@ Patch502: rpm-4.13.x-RPMCALLBACK_ELEM_PROGRESS-available-header.patch
 Patch503: rpm-4.11.x-reinstall.patch
 
 # XCP-ng patches
-## Remove size limit on expanding macros (cherry-picked a few dependencies
-## to allow less conflict resolution
-Patch1001: 0001-Warn-on-empty-files-f-manifest-files.patch
-Patch1002: 0002-Warn-when-macro-is-expanded-in-comment.patch
-Patch1003: 0003-Remove-size-limit-when-expanding-macros.patch
+## Remove size limit on expanding macros
+Patch1001: 0001-Remove-size-limit-when-expanding-macros.patch
 
 # Partially GPL/LGPL dual-licensed and some bits with BSD
 # SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD 
@@ -396,8 +393,6 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 %patch503 -p1 -b .reinstall
 
 %patch1001 -p1 -b .no-macro-size-limit
-%patch1002 -p1 -b .no-macro-size-limit
-%patch1003 -p1 -b .no-macro-size-limit
 
 
 %if %{with int_bdb}
