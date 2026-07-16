@@ -1,0 +1,278 @@
+commit d6a86b5e69e46cc283b1e06c92343319beb42e21
+Author: Panu Matilainen <pmatilai@redhat.com>
+Date:   Thu Mar 4 13:21:19 2021 +0200
+
+    Be much more careful about copying data from the signature header
+    
+    Only look for known tags, and ensure correct type and size where known
+    before copying over. Bump the old arbitrary 16k count limit to 16M limit
+    though, it's not inconceivable that a package could have that many files.
+    While at it, ensure none of these tags exist in the main header,
+    which would confuse us greatly.
+    
+    This is optimized for backporting ease, upstream can remove redundancies
+    and further improve checking later.
+    
+    Reported and initial patches by Demi Marie Obenour.
+    
+    Fixes: RhBug:1935049, RhBug:1933867, RhBug:1935035, RhBug:1934125, ...
+    
+    Fixes: CVE-2021-3421, CVE-2021-20271
+
+    Backported into 4.11.3 and combined with upstream commits:
+      - f7b97593af5cf818a5c6c5b9bc55bba6d08c9cb0
+      - e2f1f1931c5ccf3ecbe4e1e12cacb1e17a277776
+      - 822c3dc2046c29718e34ac2da16a9757a9be11da
+
+diff --git a/lib/package.c b/lib/package.c
+index 985ac47d3..565e4bf6d 100644
+--- a/lib/package.c
++++ b/lib/package.c
+@@ -28,79 +28,75 @@ static unsigned int * keyids;
+ extern int auditGpgResult;
+ extern int auditEnabled;
+ 
++static struct taglate_s {
++    rpmTagVal stag;
++    rpmTagVal xtag;
++    rpm_count_t count;
++    int quirk;
++} const xlateTags[] = {
++    { RPMSIGTAG_SIZE, RPMTAG_SIGSIZE, 1, 0 },
++    { RPMSIGTAG_PGP, RPMTAG_SIGPGP, 0, 0 },
++    { RPMSIGTAG_MD5, RPMTAG_SIGMD5, 16, 0 },
++    { RPMSIGTAG_GPG, RPMTAG_SIGGPG, 0, 0 },
++    /* { RPMSIGTAG_PGP5, RPMTAG_SIGPGP5, 0, 0 }, */ /* long obsolete, dont use */
++    { RPMSIGTAG_PAYLOADSIZE, RPMTAG_ARCHIVESIZE, 1, 1 },
++    { RPMSIGTAG_SHA1, RPMTAG_SHA1HEADER, 1, 0 },
++    { RPMSIGTAG_DSA, RPMTAG_DSAHEADER, 0, 0 },
++    { RPMSIGTAG_RSA, RPMTAG_RSAHEADER, 0, 0 },
++    { RPMSIGTAG_LONGSIZE, RPMTAG_LONGSIGSIZE, 1, 0 },
++    { RPMSIGTAG_LONGARCHIVESIZE, RPMTAG_LONGARCHIVESIZE, 1, 0 },
++    { 0 }
++};
++
+ /** \ingroup header
+  * Translate and merge legacy signature tags into header.
+  * @param h		header (dest)
+  * @param sigh		signature header (src)
++ * @return		failing tag number, 0 on success
+  */
+-static void headerMergeLegacySigs(Header h, Header sigh)
++static
++rpmTagVal headerMergeLegacySigs(Header h, Header sigh, char **msg)
+ {
+-    HeaderIterator hi;
++    const struct taglate_s *xl;
+     struct rpmtd_s td;
+ 
+-    hi = headerInitIterator(sigh);
+-    for (; headerNext(hi, &td); rpmtdFreeData(&td))
+-    {
+-	switch (td.tag) {
+-	/* XXX Translate legacy signature tag values. */
+-	case RPMSIGTAG_SIZE:
+-	    td.tag = RPMTAG_SIGSIZE;
+-	    break;
+-	case RPMSIGTAG_PGP:
+-	    td.tag = RPMTAG_SIGPGP;
+-	    break;
+-	case RPMSIGTAG_MD5:
+-	    td.tag = RPMTAG_SIGMD5;
+-	    break;
+-	case RPMSIGTAG_GPG:
+-	    td.tag = RPMTAG_SIGGPG;
+-	    break;
+-	case RPMSIGTAG_PGP5:
+-	    td.tag = RPMTAG_SIGPGP5;
+-	    break;
+-	case RPMSIGTAG_PAYLOADSIZE:
+-	    td.tag = RPMTAG_ARCHIVESIZE;
+-	    break;
+-	case RPMSIGTAG_SHA1:
+-	case RPMSIGTAG_DSA:
+-	case RPMSIGTAG_RSA:
+-	default:
+-	    if (!(td.tag >= HEADER_SIGBASE && td.tag < HEADER_TAGBASE))
++    for (xl = xlateTags; xl->stag; xl++) {
++	/* There mustn't be one in the main header */
++	if (headerIsEntry(h, xl->xtag)) {
++	    /* Some tags may exist in either header, but never both */
++	    if (xl->quirk && !headerIsEntry(sigh, xl->stag))
+ 		continue;
+-	    break;
++	    goto exit;
+ 	}
+-	if (td.data == NULL) continue;	/* XXX can't happen */
+-	if (!headerIsEntry(h, td.tag)) {
+-	    if (hdrchkType(td.type))
+-		continue;
+-	    if (td.count < 0 || hdrchkData(td.count))
+-		continue;
+-	    switch(td.type) {
+-	    case RPM_NULL_TYPE:
+-		continue;
++    }
++
++    rpmtdReset(&td);
++    for (xl = xlateTags; xl->stag; xl++) {
++	if (headerGet(sigh, xl->stag, &td, HEADERGET_RAW|HEADERGET_MINMEM)) {
++	    /* Translate legacy tags */
++	    if (xl->stag != xl->xtag)
++		td.tag = xl->xtag;
++	    /* Ensure type and tag size match expectations */
++	    if (td.type != rpmTagGetTagType(td.tag))
+ 		break;
+-	    case RPM_CHAR_TYPE:
+-	    case RPM_INT8_TYPE:
+-	    case RPM_INT16_TYPE:
+-	    case RPM_INT32_TYPE:
+-	    case RPM_INT64_TYPE:
+-		if (td.count != 1)
+-		    continue;
++	    if (td.count < 1 || td.count > 16*1024*1024)
+ 		break;
+-	    case RPM_STRING_TYPE:
+-	    case RPM_BIN_TYPE:
+-		if (td.count >= 16*1024)
+-		    continue;
++	    if (xl->count && td.count != xl->count)
+ 		break;
+-	    case RPM_STRING_ARRAY_TYPE:
+-	    case RPM_I18NSTRING_TYPE:
+-		continue;
++	    if (!headerPut(h, &td, HEADERPUT_DEFAULT))
+ 		break;
+-	    }
+-	    (void) headerPut(h, &td, HEADERPUT_DEFAULT);
++	    rpmtdFreeData(&td);
+ 	}
+     }
+-    headerFreeIterator(hi);
++    rpmtdFreeData(&td);
++
++exit:
++    if (xl->stag) {
++	rasprintf(msg, "invalid signature tag %s (%d)",
++			rpmTagGetName(xl->xtag), xl->xtag);
++    }
++
++    return xl->stag;
+ }
+ 
+ /**
+@@ -671,7 +667,7 @@ static rpmRC rpmpkgRead(rpmKeyring keyring, rpmVSFlags vsflags,
+ 	rpmlog(RPMLOG_ERR, "%s: %s", fn, msg);
+ 	break;
+     }
+-    free(msg);
++    msg = _free(msg);
+ 
+ exit:
+     if (rc != RPMRC_FAIL && h != NULL && hdrp != NULL) {
+@@ -701,10 +697,13 @@ exit:
+ 	    headerConvert(h, HEADERCONV_COMPRESSFILELIST);
+ 	
+ 	/* Append (and remap) signature tags to the metadata. */
+-	headerMergeLegacySigs(h, sigh);
+-
+-	/* Bump reference count for return. */
+-	*hdrp = headerLink(h);
++	if (headerMergeLegacySigs(h, sigh, &msg)) {
++	    rpmlog(RPMLOG_ERR, "%s: %s\n", fn, msg);
++	    free(msg);
++	    rc = RPMRC_FAIL;
++	} else
++	    /* Bump reference count for return. */
++	    *hdrp = headerLink(h);
+     }
+     rpmtdFreeData(&sigtd);
+     rpmDigestFinal(ctx, NULL, NULL, 0);
+
+commit 441a0998fca9b3d01052bc3d33f8a72f725d5865
+Author: Panu Matilainen <pmatilai@redhat.com>
+Date:   Fri Oct 21 17:37:26 2016 +0300
+
+    Require exact match on header vs region sizes when reading package files
+    
+    In rpm V4 packages both the signature and mail header consist of one
+    contiguous immutable region when read from package files and any
+    disparities in index or data size means malformed package.
+    
+    Once the signature header is merged into the main header this is
+    no longer true of course and installation adds further tags, so for
+    headers from other sources (such as rpmdb), tags outside the immutable
+    region (known as "dribbles" in rpm lore) must be allowed, and eg
+    headerCheck() cannot require exact match.
+
+    Backported into 4.11.3.  Note that the upstream patch also enforces
+    exact_size for signature headers, but this was later reverted in commit
+    34c2ba3c6a80a778cdf2e42a9193b3264e08e1b3, so we omit that part here.
+
+diff --git a/lib/package.c b/lib/package.c
+index 08f0bc634..fea27e9ca 100644
+--- a/lib/package.c
++++ b/lib/package.c
+@@ -275,7 +275,8 @@ exit:
+ }
+ 
+ static rpmRC headerVerify(rpmKeyring keyring, rpmVSFlags vsflags,
+-			  const void * uh, size_t uc, char ** msg)
++			  const void * uh, size_t uc, int exact_size,
++			  char ** msg)
+ {
+     char *buf = NULL;
+     int32_t * ei = (int32_t *) uh;
+@@ -287,6 +288,7 @@ static rpmRC headerVerify(rpmKeyring keyring, rpmVSFlags vsflags,
+     struct indexEntry_s entry;
+     struct entryInfo_s info;
+     int32_t ril = 0;
++    int32_t rdl = 0;
+     unsigned char * regionEnd = NULL;
+     rpmRC rc = RPMRC_FAIL;	/* assume failure */
+ 
+@@ -337,6 +339,7 @@ static rpmRC headerVerify(rpmKeyring keyring, rpmVSFlags vsflags,
+     regionEnd = dataStart + entry.info.offset;
+     (void) memcpy(&info, regionEnd, REGION_TAG_COUNT);
+     regionEnd += REGION_TAG_COUNT;
++    rdl = regionEnd - dataStart;
+ 
+     if (headerVerifyInfo(1, il * sizeof(*pe) + REGION_TAG_COUNT, &info, &entry.info, 1) != -1 ||
+ 	!(entry.info.tag == RPMTAG_HEADERIMMUTABLE
+@@ -358,9 +361,17 @@ static rpmRC headerVerify(rpmKeyring keyring, rpmVSFlags vsflags,
+ 	goto exit;
+     }
+ 
++    /* In package files region size is expected to match header size. */
++    if (exact_size && !(il == ril && dl == rdl)) {
++	rasprintf(&buf,
++		_("region %d: tag number mismatch %d ril %d dl %d rdl %d\n"),
++		entry.info.tag, il, ril, dl, rdl);
++	goto exit;
++    }
++
+     /* Verify header-only digest/signature if there is one we can use. */
+     rc = headerSigVerify(keyring, vsflags,
+-			 il, dl, ril, (regionEnd - dataStart),
++			 il, dl, ril, rdl,
+ 			 pe, dataStart, &buf);
+ 
+ exit:
+@@ -394,7 +405,7 @@ rpmRC headerCheck(rpmts ts, const void * uh, size_t uc, char ** msg)
+     rpmKeyring keyring = rpmtsGetKeyring(ts, 1);
+ 
+     rpmswEnter(rpmtsOp(ts, RPMTS_OP_DIGEST), 0);
+-    rc = headerVerify(keyring, vsflags, uh, uc, msg);
++    rc = headerVerify(keyring, vsflags, uh, uc, 0, msg);
+     rpmswExit(rpmtsOp(ts, RPMTS_OP_DIGEST), uc);
+     rpmKeyringFree(keyring);
+ 
+@@ -453,7 +464,7 @@ static rpmRC rpmpkgReadHeader(rpmKeyring keyring, rpmVSFlags vsflags,
+     }
+ 
+     /* Sanity check header tags */
+-    rc = headerVerify(keyring, vsflags, ei, uc, &buf);
++    rc = headerVerify(keyring, vsflags, ei, uc, 1, &buf);
+     if (rc != RPMRC_OK)
+ 	goto exit;
+ 

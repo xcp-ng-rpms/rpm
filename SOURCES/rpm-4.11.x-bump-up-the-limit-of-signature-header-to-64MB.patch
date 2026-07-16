@@ -1,0 +1,12 @@
+diff -up rpm-4.11.3/lib/signature.c.orig rpm-4.11.3/lib/signature.c
+--- rpm-4.11.3/lib/signature.c.orig	2021-09-17 09:47:03.635252057 +0200
++++ rpm-4.11.3/lib/signature.c	2021-09-17 09:50:12.172825113 +0200
+@@ -102,7 +102,7 @@ rpmRC rpmReadSignature(FD_t fd, Header *
+ 	goto exit;
+     }
+     dl = ntohl(block[3]);
+-    if (dl < 0 || dl > 8192) {
++    if (dl < 0 || dl > 64 * 1024 * 1024) {
+ 	rasprintf(&buf, 
+ 		  _("sigh data: BAD, no. of  bytes(%d) out of range\n"), dl);
+ 	goto exit;
