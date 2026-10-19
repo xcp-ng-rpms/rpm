@@ -26,7 +26,7 @@
 Summary: The RPM package management system
 Name: rpm
 Version: %{rpmver}
-Release: %{?snapver:0.%{snapver}.}32.2%{?dist}
+Release: %{?snapver:0.%{snapver}.}32.1%{?dist}
 Group: System Environment/Base
 Url: http://www.rpm.org/
 Source0: http://rpm.org/releases/rpm-4.11.x/%{name}-%{srcver}.tar.bz2
@@ -633,13 +633,11 @@ exit 0
 %doc COPYING doc/librpm/html/*
 
 %changelog
-* Thu Jun 04 2026 Philippe Coval <philippe.coval@vates.tech> - 4.11.3-32.2
-- Fix %%patch macro for compatibility with RPM 4.20 and above
-- Add gcc to BuildRequires
-- Fix unversioned python
-
 * Thu Mar 26 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
 - Backport size limit remove on macros
+- Fix %%patch macro for compatibility with RPM 4.20 and above (Philippe Coval)
+- Add gcc to BuildRequires (Philippe Coval)
+- Fix unversioned python (Philippe Coval)
 
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
