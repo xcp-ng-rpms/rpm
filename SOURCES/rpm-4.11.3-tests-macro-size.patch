@@ -1,0 +1,112 @@
+tests: Add tests for long macro expansions and macro errors
+
+Origin: XCP-ng, written for the review of xcp-ng-rpms/rpm#3
+(2026-10-20), to cover 0001-Remove-size-limit-when-expanding-macros.patch
+(upstream 61838b0fdacb71a881baac164043b8e40ddfbec5).
+
+rpm 4.11.3 cut macro expansions silently to the callers' fixed buffers:
+spec lines at 81920 bytes (build/spec.c, BUFSIZ * 10) and scriptlet -f
+files at 8192 bytes (build/pack.c). The new tests check that:
+- a spec line expanding to 100000 bytes is kept whole;
+- a %post -f file line expanding past 8192 bytes is kept whole;
+- a macro error on a spec line makes rpmbuild fail cleanly (the new
+  error path of expandMacrosU()).
+Without the fix the first two fail; the third passes either way.
+
+--- a/tests/rpmbuild.at
++++ b/tests/rpmbuild.at
+@@ -185,3 +185,94 @@
+ ],
+ [])
+ AT_CLEANUP
++
++# ------------------------------
++# xcp-ng-rpms/rpm#3: expandMacrosU() (upstream 61838b0)
++AT_SETUP([rpmbuild spec line expanding past 81920 bytes])
++AT_KEYWORDS([build longmacro])
++AT_DATA([longline.spec],
++[[Name: longline
++Version: 1.0
++Release: 1
++Summary: Long spec line expansion
++License: Public Domain
++Group: Testing
++BuildArch: noarch
++%global longstr %{lua: print(string.rep("a", 100000))}
++
++%description
++%{longstr}
++
++%files
++]])
++AT_CHECK([
++rm -rf ${TOPDIR}
++run rpmbuild -bb --quiet longline.spec
++run rpm -qp --qf '%{description}' \
++  "${TOPDIR}"/RPMS/noarch/longline-1.0-1.noarch.rpm | wc -c
++],
++[0],
++[100000
++],
++[ignore])
++AT_CLEANUP
++
++AT_SETUP([rpmbuild post -f script line expanding past 8192 bytes])
++AT_KEYWORDS([build longmacro])
++AT_DATA([longscript.spec],
++[[Name: longscript
++Version: 1.0
++Release: 1
++Summary: Long scriptlet file expansion
++License: Public Domain
++Group: Testing
++BuildArch: noarch
++%global longstr %{lua: print(string.rep("a", 100000))}
++
++%description
++%{summary}
++
++%install
++echo 'echo %%{longstr}' > post.sh
++
++%post -f post.sh
++
++%files
++]])
++AT_CHECK([
++rm -rf ${TOPDIR}
++run rpmbuild -bb --quiet longscript.spec
++n=`run rpm -qp --qf '%{postin}' \
++  "${TOPDIR}"/RPMS/noarch/longscript-1.0-1.noarch.rpm | wc -c`
++test "$n" -ge 100005 && echo ok || echo "short $n"
++],
++[0],
++[ok
++],
++[ignore])
++AT_CLEANUP
++
++AT_SETUP([rpmbuild macro error on a spec line])
++AT_KEYWORDS([build longmacro])
++AT_DATA([macroerr.spec],
++[[Name: macroerr
++Version: 1.0
++Release: 1
++Summary: Macro error on a spec line
++License: Public Domain
++Group: Testing
++BuildArch: noarch
++
++%description
++%{lua: error("boom")}
++
++%files
++]])
++AT_CHECK([
++rm -rf ${TOPDIR}
++run rpmbuild -bb --quiet macroerr.spec
++],
++[1],
++[ignore],
++[ignore])
++AT_CLEANUP

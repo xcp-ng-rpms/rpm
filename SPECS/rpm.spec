@@ -3,7 +3,7 @@
 # just for giggles, option to build with internal Berkeley DB
 %bcond_with int_bdb
 # run internal testsuite?
-# XCP-ng: enabled, needs fakechroot in the buildroot (Patch1002-1004)
+# XCP-ng: enabled, needs fakechroot in the buildroot (Patch1002-1005)
 %bcond_without check
 # disable plugins initially
 %bcond_without plugins
@@ -153,6 +153,9 @@ Patch1003: rpm-4.11.3-tests-fakechroot-exclude.patch
 # Origin: backport of
 # https://github.com/rpm-software-management/rpm/commit/b953262298d569c64de078dd907c88b18f6702ae
 Patch1004: rpm-4.11.3-tests-no-fstab.patch
+# Test suite: tests for long macro expansions (Patch1001) and macro errors
+# Origin: XCP-ng
+Patch1005: rpm-4.11.3-tests-macro-size.patch
 
 # Partially GPL/LGPL dual-licensed and some bits with BSD
 # SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD
@@ -418,6 +421,7 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 %patch -P1002 -p1 -b .tests-fakechroot-paths
 %patch -P1003 -p1 -b .tests-fakechroot-exclude
 %patch -P1004 -p1 -b .tests-no-fstab
+%patch -P1005 -p1 -b .tests-macro-size
 
 %if %{with int_bdb}
 ln -s db-%{bdbver} db
@@ -659,6 +663,7 @@ exit 0
   (rpm-4.11.3-tests-fakechroot-paths.patch, backport of upstream
   5b8b2bdd3 and 394cbfb66; rpm-4.11.3-tests-fakechroot-exclude.patch;
   rpm-4.11.3-tests-no-fstab.patch, backport of upstream b953262298)
+- Add tests for long macro expansions (rpm-4.11.3-tests-macro-size.patch)
 
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
