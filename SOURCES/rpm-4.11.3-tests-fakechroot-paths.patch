@@ -1,0 +1,1502 @@
+tests: Do not pass real pathnames to fakechroot commands
+
+Origin: backport to rpm 4.11.3 of two upstream commits, both released
+in rpm 4.13.0:
+- 5b8b2bdd328c36d400ea6b73869b447941173a9b
+  Michal Marek <mmarek@suse.com>, 2016-08-12
+  https://github.com/rpm-software-management/rpm/commit/5b8b2bdd328c36d400ea6b73869b447941173a9b
+- 394cbfb668655f7aa10ff6b178ec92b44a117ea6
+  Florian Festi <ffesti@redhat.com>, 2016-08-29
+  https://github.com/rpm-software-management/rpm/commit/394cbfb668655f7aa10ff6b178ec92b44a117ea6
+
+Upstream's reason: "Fakechroot returns -ENOENT for such paths".
+fakechroot >= 2.10 prefixes every path with FAKECHROOT_BASE, even a
+path already under it, so the host paths the tests pass to runroot
+point nowhere. The 4.11.3 suite was written for fakechroot 2.9.
+
+The upstream hunks don't apply to the 4.11.3 test files, so their
+changes were made to those files instead:
+- "${TOPDIR}"/ replaced with /build/ in the arguments of runroot
+  commands (TOPDIR is ${RPMTEST}/build, i.e. /build in the fake root);
+- runroot unsets RPM_CONFIGDIR and RPM_POPTEXEC_PATH (5b8b2bdd3);
+- hlinktest.spec gets "Provides: /bin/sh" (394cbfb66).
+Every line this patch adds also appears in one of the two upstream
+commits. Upstream changes more lines, in tests rpm 4.11.3 doesn't have.
+
+--- a/tests/atlocal.in
++++ b/tests/atlocal.in
+@@ -29,7 +29,7 @@
+ 
+ function runroot()
+ {
+-    (cd ${RPMTEST} && \
++    (unset RPM_CONFIGDIR RPM_POPTEXEC_PATH; cd ${RPMTEST} && \
+      MAGIC="/magic/magic" FAKECHROOT_BASE="${RPMTEST}" fakechroot "$@" --define "_topdir /build" --noplugins
+     )
+ }
+--- a/tests/rpmbuild.at
++++ b/tests/rpmbuild.at
+@@ -95,7 +95,7 @@
+ 
+ runroot rpm -qp --qf \
+   "\n[%{filemodes:perms} %-8{fileusername} %-8{filegroupname} %{filenames}\n]"\
+-  "${TOPDIR}"/RPMS/noarch/attrtest-1.0-1.noarch.rpm
++  /build/RPMS/noarch/attrtest-1.0-1.noarch.rpm
+ ]],
+ [0],
+ [
+@@ -135,7 +135,7 @@
+ runroot rpmbuild \
+   -bb --quiet /data/SPECS/hlinktest.spec
+ 
+-runroot rpm -i "${TOPDIR}"/RPMS/noarch/hlinktest-1.0-1.noarch.rpm
++runroot rpm -i /build/RPMS/noarch/hlinktest-1.0-1.noarch.rpm
+ 
+ runroot rpm -q --qf "[[%{filenlinks} %{filenames}\n]]%{longsize}\n" hlinktest
+ runroot rpm -V --nouser --nogroup hlinktest
+@@ -164,7 +164,7 @@
+ runroot rpmbuild -bb --quiet /data/SPECS/globtest.spec
+ runroot rpm -qp \
+ 	--qf "[[%{filemodes:perms} %{filenames}\n]]" \
+-	"${TOPDIR}"/RPMS/noarch/globtest-1.0-1.noarch.rpm
++	/build/RPMS/noarch/globtest-1.0-1.noarch.rpm
+ ],
+ [0],
+ [-rw-r--r-- /opt/globtest/baf
+--- a/tests/rpmconfig.at
++++ b/tests/rpmconfig.at
+@@ -18,7 +18,7 @@
+           /data/SPECS/configtest.spec
+ 
+ echo "otherstuff" > "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -e configtest
+ cat "${cf}.rpmorig"
+@@ -47,7 +47,7 @@
+           /data/SPECS/configtest.spec
+ 
+ echo "otherstuff" > "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -e configtest
+ cat "${cf}.rpmorig"
+@@ -76,7 +76,7 @@
+           /data/SPECS/configtest.spec
+ 
+ echo "foo" > "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -e configtest
+ test ! -f "${cf}"
+@@ -102,7 +102,7 @@
+ 	--define "filedata foo" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -e configtest
+ test ! -f "${cf}"
+@@ -128,7 +128,7 @@
+ 	--define "filedata foo" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ runroot rpm -e configtest
+@@ -159,7 +159,7 @@
+ 	--define "noreplace 1" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ runroot rpm -e configtest
+@@ -192,9 +192,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -222,11 +222,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -255,9 +255,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -285,11 +285,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ cat "${cf}.rpmsave"
+ ],
+@@ -321,11 +321,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "foo-2.0" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -357,9 +357,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -389,11 +389,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -423,9 +423,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -454,11 +454,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ cat "${cf}.rpmnew"
+ ],
+@@ -491,11 +491,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "foo-2.0" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -529,12 +529,12 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -567,14 +567,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -607,12 +607,12 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -644,14 +644,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ cat "${cf}.rpmsave"
+ ],
+@@ -687,14 +687,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "foo-2.0" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -729,14 +729,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ cat "${cf}.rpmnew"
+ ],
+@@ -773,14 +773,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "foo-2.0" > "${RPMTEST}"/etc/my.conf
+ cat "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -815,18 +815,18 @@
+ test ! -f "${cf}" && echo OK1
+ echo "keaton" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -e configtest
+ cat "${cf}"
+ rm -f "${cf}"
+ 
+ # post-install config, upgrade, erase
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ test ! -f "${cf}" && echo OK2
+ echo "buster" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ runroot rpm -e configtest
+ cat "${cf}"
+--- a/tests/rpmconfig2.at
++++ b/tests/rpmconfig2.at
+@@ -19,7 +19,7 @@
+           /data/SPECS/configtest.spec
+ 
+ ln -s "otherstuff" "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ runroot rpm -e configtest
+ readlink "${cf}.rpmorig"
+@@ -50,7 +50,7 @@
+ 
+ ln -s "foo" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ runroot rpm -e configtest
+ test ! -L "${cf}"
+@@ -78,7 +78,7 @@
+ 	--define "filetype link" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ runroot rpm -e configtest
+ test ! -L "${cf}"
+@@ -105,7 +105,7 @@
+ 	--define "filetype link" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ runroot rpm -e configtest
+@@ -138,9 +138,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -170,11 +170,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -204,9 +204,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -235,11 +235,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ readlink "${cf}.rpmsave"
+ ],
+@@ -272,11 +272,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "foo-2.0" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -309,9 +309,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -342,11 +342,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -377,9 +377,9 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -409,11 +409,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ readlink "${cf}.rpmnew"
+ ],
+@@ -447,11 +447,11 @@
+           /data/SPECS/configtest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "foo-2.0" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ test ! -L "${cf}.rpmnew"
+ ],
+@@ -487,12 +487,12 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -526,14 +526,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -567,12 +567,12 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -605,14 +605,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ readlink "${cf}.rpmsave"
+ ],
+@@ -649,14 +649,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "foo-2.0" "${cf}"
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ ],
+ [0],
+@@ -692,14 +692,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ readlink "${cf}.rpmnew"
+ ],
+@@ -737,14 +737,14 @@
+ done
+ 
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "foo-2.0" "${cf}"
+ readlink "${cf}"
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
++    /build/RPMS/noarch/configtest-A-2.0-1.noarch.rpm \
++    /build/RPMS/noarch/configtest-B-2.0-1.noarch.rpm
+ readlink "${cf}"
+ test ! -L "${cf}.rpmnew"
+ ],
+--- a/tests/rpmconfig3.at
++++ b/tests/rpmconfig3.at
+@@ -25,11 +25,11 @@
+ 	--define "noconfig 1" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -63,14 +63,14 @@
+ 	--define "noconfig 1" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ cat "${cf}.rpmsave"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -107,13 +107,13 @@
+ 	--define "noconfig 1" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "bar" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -147,11 +147,11 @@
+ 	--define "filedata bar" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ ],
+ [0],
+@@ -184,11 +184,11 @@
+ 	--define "filedata bar" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ readlink "${cf}"
+ cat "${cf}.rpmsave"
+ ],
+@@ -224,11 +224,11 @@
+ 	--define "filedata bar" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ readlink "${cf}"
+ ln -sf "otherstuff" "${cf}"
+ readlink "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ cat "${cf}"
+ readlink "${cf}.rpmsave"
+ ],
+@@ -263,9 +263,9 @@
+ 	--define "filetype dir" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ test -d "${cf}"
+ ],
+ [0],
+@@ -295,11 +295,11 @@
+ 	--define "filetype dir" \
+           /data/SPECS/configtest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-1.0-1.noarch.rpm
+ cat "${cf}"
+ echo "otherstuff" > "${cf}"
+ cat "${cf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/configtest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/configtest-2.0-1.noarch.rpm
+ test -d "${cf}"
+ cat "${cf}.rpmsave"
+ ],
+--- a/tests/rpmconflict.at
++++ b/tests/rpmconflict.at
+@@ -18,8 +18,8 @@
+           /data/SPECS/conflicttest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/conflictone-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/conflictone-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
+ ],
+ [1],
+ [ignore],
+@@ -35,8 +35,8 @@
+ RPMDB_INIT
+ 
+ runroot rpm -U \
+-  "${TOPDIR}"/RPMS/noarch/conflictone-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
++  /build/RPMS/noarch/conflictone-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
+ ],
+ [2],
+ [ignore],
+@@ -59,8 +59,8 @@
+           /data/SPECS/conflicttest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/conflictone-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/conflictone-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
+ ],
+ [0],
+ [ignore],
+@@ -76,8 +76,8 @@
+ RPMDB_INIT
+ 
+ runroot rpm -U \
+-  "${TOPDIR}"/RPMS/noarch/conflictone-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
++  /build/RPMS/noarch/conflictone-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
+ ],
+ [0],
+ [ignore],
+@@ -95,7 +95,7 @@
+ 
+ runroot rpmbuild --quiet -bb /data/SPECS/selfconflict.spec
+ rm -rf "${RPMTEST}"/opt/mydir
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
+ ],
+ [0],
+ [],
+@@ -115,7 +115,7 @@
+ rm -rf "${RPMTEST}"/opt/mydir
+ mkdir -p "${RPMTEST}"/opt/mydir/one
+ ln -s one "${RPMTEST}"/opt/mydir/two
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
+ ],
+ [1],
+ [],
+@@ -288,7 +288,7 @@
+   --define "_transaction_color 3" \
+   --define "_prefer_color 2" \
+   /data/RPMS/hello-2.0-1.x86_64.rpm \
+-  "${TOPDIR}"/RPMS/noarch/hello-script-1.0-1.noarch.rpm
++  /build/RPMS/noarch/hello-script-1.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -313,7 +313,7 @@
+ runroot rpm -U --ignoreos --ignorearch --nodeps \
+   --define "_transaction_color 3" \
+   --define "_prefer_color 2" \
+-  "${TOPDIR}"/RPMS/noarch/hello-script-1.0-1.noarch.rpm
++  /build/RPMS/noarch/hello-script-1.0-1.noarch.rpm
+ ],
+ [1],
+ [],
+@@ -333,7 +333,7 @@
+ runroot rpm -U --ignoreos --ignorearch --nodeps \
+   --define "_transaction_color 3" \
+   --define "_prefer_color 2" \
+-  "${TOPDIR}"/RPMS/noarch/hello-script-1.0-1.noarch.rpm
++  /build/RPMS/noarch/hello-script-1.0-1.noarch.rpm
+ 
+ runroot rpm -U --ignoreos --ignorearch --nodeps \
+   --define "_transaction_color 3" \
+@@ -361,8 +361,8 @@
+ runroot rpmbuild --quiet -bb \
+     --define "rel 2" --with symlink /data/SPECS/symlinktest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/symlinktest-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/symlinktest-1.0-2.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/symlinktest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/symlinktest-1.0-2.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -385,8 +385,8 @@
+ runroot rpmbuild --quiet -bb \
+     --define "rel 2" --without symlink /data/SPECS/symlinktest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/symlinktest-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/symlinktest-1.0-2.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/symlinktest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/symlinktest-1.0-2.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -414,8 +414,8 @@
+ 
+ test ! -f "${fn}" && echo OK
+ runroot rpm -U \
+-    "${TOPDIR}"/RPMS/noarch/conflictone-1.0-1.noarch.rpm \
+-    "${TOPDIR}"/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
++    /build/RPMS/noarch/conflictone-1.0-1.noarch.rpm \
++    /build/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
+ cat "${fn}"
+ runroot rpm -e conflicttwo
+ cat "${fn}"
+--- a/tests/rpmdb.at
++++ b/tests/rpmdb.at
+@@ -200,7 +200,7 @@
+ 	--define "filedata same_stuff" \
+           /data/SPECS/conflicttest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/conflictstatus-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/conflictstatus-1.0-1.noarch.rpm
+ runroot rpm -qls conflictstatus
+ ],
+ [0],
+@@ -221,7 +221,7 @@
+ runroot rpmbuild --quiet -bb \
+           /data/SPECS/flangtest.spec
+ 
+-runroot rpm -U --define "_install_langs de:fi" "${TOPDIR}"/RPMS/noarch/flangtest-1.0-1.noarch.rpm
++runroot rpm -U --define "_install_langs de:fi" /build/RPMS/noarch/flangtest-1.0-1.noarch.rpm
+ runroot rpm -qls flangtest
+ ],
+ [0],
+@@ -246,7 +246,7 @@
+ rm -rf "${RPMTEST}"/opt/*
+ 
+ runroot rpmbuild --quiet -bb /data/SPECS/selfconflict.spec
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
+ find "${RPMTEST}"/opt | wc -l
+ ],
+ [0],
+@@ -267,7 +267,7 @@
+ rm -rf "${RPMTEST}"/opt/*
+ 
+ runroot rpmbuild --quiet -bb /data/SPECS/selfconflict.spec
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/selfconflict-1.0-1.noarch.rpm
+ runroot rpm -e selfconflict
+ find "${RPMTEST}"/opt | wc -l
+ ],
+--- a/tests/rpmdeps.at
++++ b/tests/rpmdeps.at
+@@ -16,7 +16,7 @@
+ 	--define "reqs deptest-two" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+ ],
+ [1],
+ [],
+@@ -44,7 +44,7 @@
+ 	--define "reqs deptest-one" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ ],
+ [0],
+ [],
+@@ -70,7 +70,7 @@
+ 	--define "provs deptest-foo = 1.0" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -98,7 +98,7 @@
+ 	--define "provs deptest-foo = 2.0" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ ],
+ [0],
+ [],
+@@ -123,7 +123,7 @@
+ 	--define "pkg two" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -150,8 +150,8 @@
+ 	--define "pkg two" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ ],
+ [1],
+ [],
+@@ -173,7 +173,7 @@
+ 	--define "cfls something" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+ runroot rpm -V --nofiles deptest-one
+ ],
+ [0],
+@@ -199,14 +199,14 @@
+ 	  /data/SPECS/deptest.spec
+ 
+ runroot rpm -U --test \
+-	"${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm \
+-	"${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++	/build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm \
++	/build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ runroot rpm -e deptest-one
+ # XXX FIXME: rpm's problem message for this case is higly bogus.
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+ runroot rpm -e deptest-two
+ ],
+ [],
+@@ -238,7 +238,7 @@
+ 	--define "provs deptest-foo = 2.0" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ runroot rpm -e deptest-two
+ ],
+ [1],
+@@ -266,7 +266,7 @@
+ 	--define "_prefer_color 2" \
+ 	/data/RPMS/hello-2.0-1.i686.rpm \
+ 	/data/RPMS/hello-2.0-1.x86_64.rpm \
+-	"${TOPDIR}"/RPMS/noarch/deptest-hello-1.0-1.noarch.rpm
++	/build/RPMS/noarch/deptest-hello-1.0-1.noarch.rpm
+ 
+ runroot rpm -e hello.x86_64
+ ],
+@@ -295,7 +295,7 @@
+ 	--define "_prefer_color 2" \
+ 	/data/RPMS/hello-2.0-1.i686.rpm \
+ 	/data/RPMS/hello-2.0-1.x86_64.rpm \
+-	"${TOPDIR}"/RPMS/noarch/deptest-hello-1.0-1.noarch.rpm
++	/build/RPMS/noarch/deptest-hello-1.0-1.noarch.rpm
+ 
+ runroot rpm -e hello.i686
+ ],
+--- a/tests/rpmi.at
++++ b/tests/rpmi.at
+@@ -111,8 +111,8 @@
+           /data/SPECS/versiontest.spec
+ done
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/versiontest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/versiontest-2.0-1.noarch.rpm
+ runroot rpm -q versiontest
+ ],
+ [0],
+@@ -127,8 +127,8 @@
+ RPMDB_CLEAR
+ RPMDB_INIT
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/versiontest-2.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/versiontest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -142,8 +142,8 @@
+ RPMDB_CLEAR
+ RPMDB_INIT
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/versiontest-2.0-1.noarch.rpm
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/versiontest-2.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm
+ runroot rpm -q versiontest
+ ],
+ [0],
+@@ -159,8 +159,8 @@
+ RPMDB_INIT
+ 
+ runroot rpm -Uv \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-2.0-1.noarch.rpm
++  /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/versiontest-2.0-1.noarch.rpm
+ runroot rpm -q versiontest
+ ],
+ [0],
+@@ -179,8 +179,8 @@
+ RPMDB_INIT
+ 
+ runroot rpm -Uv \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-2.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm
++  /build/RPMS/noarch/versiontest-2.0-1.noarch.rpm \
++  /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm
+ runroot rpm -q versiontest
+ ],
+ [0],
+@@ -208,8 +208,8 @@
+ 
+ 
+ runroot rpm -Uv \
+-  "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++  /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+ runroot rpm -q deptest-one
+ ],
+ [0],
+@@ -237,8 +237,8 @@
+ 
+ 
+ runroot rpm -Uv \
+-  "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
++  /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/deptest-two-1.0-1.noarch.rpm
+ runroot rpm -q deptest-one
+ ],
+ [0],
+@@ -257,8 +257,8 @@
+ RPMDB_INIT
+ 
+ runroot rpm -i \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-2.0-1.noarch.rpm
++  /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/versiontest-2.0-1.noarch.rpm
+ runroot rpm -q versiontest
+ ],
+ [0],
+@@ -276,8 +276,8 @@
+ RPMDB_INIT
+ 
+ runroot rpm -i \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm \
+-  "${TOPDIR}"/RPMS/noarch/versiontest-1.0-1.noarch.rpm
++  /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm \
++  /build/RPMS/noarch/versiontest-1.0-1.noarch.rpm
+ runroot rpm -q versiontest
+ ],
+ [0],
+@@ -297,7 +297,7 @@
+ runroot rpmbuild --quiet -bb /data/SPECS/hello-script.spec
+ 
+ runroot rpm -U --test --ignoreos --relocate /usr=/opt \
+-  "${TOPDIR}"/RPMS/noarch/hello-script-1.0-1.noarch.rpm
++  /build/RPMS/noarch/hello-script-1.0-1.noarch.rpm
+ ],
+ [1],
+ [],
+@@ -314,7 +314,7 @@
+ runroot rpmbuild --quiet -bb /data/SPECS/hello-script.spec
+ 
+ runroot rpm -U --test --ignoreos --badreloc --relocate /usr=/opt \
+-  "${TOPDIR}"/RPMS/noarch/hello-script-1.0-1.noarch.rpm
++  /build/RPMS/noarch/hello-script-1.0-1.noarch.rpm
+ ],
+ [0],
+ [],
+--- a/tests/rpmreplace.at
++++ b/tests/rpmreplace.at
+@@ -22,11 +22,11 @@
+ 	--define "filedata bar" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ cat "${tf}"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+ ],
+ [0],
+@@ -58,11 +58,11 @@
+ 	--define "filedata stuff" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+ ],
+ [0],
+@@ -94,11 +94,11 @@
+ 	--define "filedata goo" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U --oldpackage "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U --oldpackage /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+ ],
+ [0],
+@@ -130,9 +130,9 @@
+ 	--define "filedata stuff" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+ ],
+ [0],
+@@ -163,9 +163,9 @@
+ 	--define "filedata goo" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+ ],
+ [0],
+@@ -196,9 +196,9 @@
+ 	--define "filedata zoo" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+ ],
+ [0],
+@@ -228,9 +228,9 @@
+ 	--define "filetype dir" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ cat "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ test -d "${tf}"
+ ],
+ [0],
+@@ -259,9 +259,9 @@
+ 	--define "filetype dir" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ test -d "${tf}"
+ ],
+ [0],
+@@ -290,9 +290,9 @@
+ 	--define "filetype dir" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ test -d "${tf}"
+ ],
+ [0],
+@@ -321,9 +321,9 @@
+ 	--define "filetype dir" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+ readlink "${tf}"
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ ],
+ [2],
+ [zoo
+@@ -351,8 +351,8 @@
+ 	--define "filetype dir" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ test -d "${tf}"
+ ],
+ [0],
+@@ -380,8 +380,8 @@
+ 	--define "filedata woot" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -412,8 +412,8 @@
+ 
+ mkdir "${RPMTEST}"/opt/f00f
+ ln -s f00f "${RPMTEST}"/opt/foo
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -L "${tf}" && test -d "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -L "${tf}" && test -d "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ test -L "${tf}" && test -d "${tf}"
+ ],
+ [0],
+@@ -441,8 +441,8 @@
+ 	--define "filedata woot" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -470,8 +470,8 @@
+ 	--define "filedata woot" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ ],
+ [2],
+ [],
+@@ -499,8 +499,8 @@
+ 	--define "filedata goo" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && rmdir "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && rmdir "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+ ],
+ [0],
+@@ -529,8 +529,8 @@
+ 	--define "filedata goo" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && rmdir "${tf}" && ln -sf goo "${tf}" && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && rmdir "${tf}" && ln -sf goo "${tf}" && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+ ],
+ [0],
+@@ -560,8 +560,8 @@
+ 	--define "fixit posix.rmdir('/opt/foo')" \
+           /data/SPECS/replacetest.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-1.0-1.noarch.rpm
+-test -d "${tf}" && runroot rpm -U --test "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm && runroot rpm -U "${TOPDIR}"/RPMS/noarch/replacetest-2.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/replacetest-1.0-1.noarch.rpm
++test -d "${tf}" && runroot rpm -U --test /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm && runroot rpm -U /build/RPMS/noarch/replacetest-2.0-1.noarch.rpm
+ readlink "${tf}"
+ ],
+ [0],
+--- a/tests/rpmscript.at
++++ b/tests/rpmscript.at
+@@ -15,9 +15,9 @@
+ runroot rpmbuild --quiet -bb --define "rel 1" /data/SPECS/scripts.spec
+ runroot rpmbuild --quiet -bb --define "rel 2" /data/SPECS/scripts.spec
+ 
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/fakeshell-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/scripts-1.0-1.noarch.rpm
+-runroot rpm -U "${TOPDIR}"/RPMS/noarch/scripts-1.0-2.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/fakeshell-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/scripts-1.0-1.noarch.rpm
++runroot rpm -U /build/RPMS/noarch/scripts-1.0-2.noarch.rpm
+ runroot rpm -e scripts
+ ],
+ [0],
+--- a/tests/rpmverify.at
++++ b/tests/rpmverify.at
+@@ -16,7 +16,7 @@
+ 	--define "reqs deptest-two" \
+ 	  /data/SPECS/deptest.spec
+ 
+-runroot rpm -U --nodeps "${TOPDIR}"/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
++runroot rpm -U --nodeps /build/RPMS/noarch/deptest-one-1.0-1.noarch.rpm
+ runroot rpm -Va --nofiles
+ ],
+ [1],
+@@ -117,7 +117,7 @@
+ 
+ rm -rf "${TOPDIR}"
+ runroot rpmbuild --quiet -bb /data/SPECS/verifyscript.spec
+-runroot rpm -U --nodeps "${TOPDIR}"/RPMS/noarch/verifyscript-1.0-1.noarch.rpm
++runroot rpm -U --nodeps /build/RPMS/noarch/verifyscript-1.0-1.noarch.rpm
+ rm -f "${RPMTEST}"/var/checkme
+ runroot rpm -V --nodeps verifyscript
+ ],
+@@ -134,7 +134,7 @@
+ 
+ rm -rf "${TOPDIR}"
+ runroot rpmbuild --quiet -bb /data/SPECS/verifyscript.spec
+-runroot rpm -U --nodeps "${TOPDIR}"/RPMS/noarch/verifyscript-1.0-1.noarch.rpm
++runroot rpm -U --nodeps /build/RPMS/noarch/verifyscript-1.0-1.noarch.rpm
+ touch "${RPMTEST}"/var/checkme
+ runroot rpm -V --nodeps verifyscript
+ ],
+@@ -163,7 +163,7 @@
+ 
+ # first instance of a shared file is the one that actually gets created,
+ # force the order so we know what to expect as these dont depend on each other
+-runroot rpm -U --noorder "${TOPDIR}"/RPMS/noarch/conflictone-1.0-1.noarch.rpm "${TOPDIR}"/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
++runroot rpm -U --noorder /build/RPMS/noarch/conflictone-1.0-1.noarch.rpm /build/RPMS/noarch/conflicttwo-1.0-1.noarch.rpm
+ runroot rpm -e conflicttwo
+ runroot rpm -Va --nouser --nogroup
+ ],
+--- a/tests/data/SPECS/hlinktest.spec
++++ b/tests/data/SPECS/hlinktest.spec
+@@ -5,6 +5,7 @@
+ License:          Testing
+ Group:            Testing
+ BuildArch:	  noarch
++Provides: /bin/sh
+ %description
+   
+ %install

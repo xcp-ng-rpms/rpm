@@ -3,7 +3,8 @@
 # just for giggles, option to build with internal Berkeley DB
 %bcond_with int_bdb
 # run internal testsuite?
-%bcond_with check
+# XCP-ng: enabled, needs fakechroot in the buildroot (Patch1002-1004)
+%bcond_without check
 # disable plugins initially
 %bcond_without plugins
 
@@ -140,6 +141,18 @@ Patch503: rpm-4.11.x-reinstall.patch
 # Backport of size limit removal on expanding macros
 # Origin: https://github.com/rpm-software-management/rpm/commit/61838b0fdacb71a881baac164043b8e40ddfbec5
 Patch1001: 0001-Remove-size-limit-when-expanding-macros.patch
+# Test suite: pass fake root paths to runroot (fakechroot >= 2.10)
+# Origin: backport of
+# https://github.com/rpm-software-management/rpm/commit/5b8b2bdd328c36d400ea6b73869b447941173a9b
+# https://github.com/rpm-software-management/rpm/commit/394cbfb668655f7aa10ff6b178ec92b44a117ea6
+Patch1002: rpm-4.11.3-tests-fakechroot-paths.patch
+# Test suite: keep /dev, /proc, /sys and NSS softoken outside the fake root
+# Origin: XCP-ng (not upstream: rpm 4.11.x is no longer maintained there)
+Patch1003: rpm-4.11.3-tests-fakechroot-exclude.patch
+# Test suite: don't link /etc/fstab into the fake root (make check fails without it)
+# Origin: backport of
+# https://github.com/rpm-software-management/rpm/commit/b953262298d569c64de078dd907c88b18f6702ae
+Patch1004: rpm-4.11.3-tests-no-fstab.patch
 
 # Partially GPL/LGPL dual-licensed and some bits with BSD
 # SourceLicense: (GPLv2+ and LGPLv2+ with exceptions) and BSD
@@ -402,6 +415,9 @@ Requires: rpm-libs%{_isa} = %{version}-%{release}
 %patch -P503 -p1 -b .reinstall
 
 %patch -P1001 -p1 -b .no-macro-size-limit
+%patch -P1002 -p1 -b .tests-fakechroot-paths
+%patch -P1003 -p1 -b .tests-fakechroot-exclude
+%patch -P1004 -p1 -b .tests-no-fstab
 
 %if %{with int_bdb}
 ln -s db-%{bdbver} db
@@ -496,7 +512,8 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with check}
 %check
 make check
-[ "$(ls -A tests/rpmtests.dir)" ] && cat tests/rpmtests.log
+# XCP-ng: fail the build when a test fails (make check ignores failures)
+if [ "$(ls -A tests/rpmtests.dir)" ]; then cat tests/rpmtests.log; exit 1; fi
 %endif
 
 %post libs -p /sbin/ldconfig
@@ -638,6 +655,10 @@ exit 0
 - Fix %%patch macro for compatibility with RPM 4.20 and above (Philippe Coval)
 - Add gcc to BuildRequires (Philippe Coval)
 - Fix unversioned python (Philippe Coval)
+- Run the test suite at build time, fixed for fakechroot >= 2.10
+  (rpm-4.11.3-tests-fakechroot-paths.patch, backport of upstream
+  5b8b2bdd3 and 394cbfb66; rpm-4.11.3-tests-fakechroot-exclude.patch;
+  rpm-4.11.3-tests-no-fstab.patch, backport of upstream b953262298)
 
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
