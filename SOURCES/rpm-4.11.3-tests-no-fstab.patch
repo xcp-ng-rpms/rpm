@@ -1,0 +1,37 @@
+tests: don't copy fstab to chroot
+
+Origin: backport to rpm 4.11.3 of upstream commit
+b953262298d569c64de078dd907c88b18f6702ae, released in rpm 4.14.0:
+  Igor Gnatenko <i.gnatenko.brain@gmail.com>, 2017-07-20
+  https://github.com/rpm-software-management/rpm/commit/b953262298d569c64de078dd907c88b18f6702ae
+
+Upstream's reason: "We deinifetly don't need this." It also fixes
+"make check" on systems without /etc/fstab, such as the xcp-ng-build-env
+container: the loop's last iteration, "[ -f /etc/fstab ] && ln ...",
+returns 1, so make stops before the test suite runs.
+
+Same one-line change as upstream, made to tests/Makefile.am and to the
+generated tests/Makefile.in, whose context differs from upstream's.
+
+--- a/tests/Makefile.am
++++ b/tests/Makefile.am
+@@ -104,7 +104,7 @@
+ 	cp -r ${srcdir}/data/ testing/
+ 	for d in dev etc magic tmp var; do if [ ! -d testing/$${d} ]; then mkdir testing/$${d}; fi; done
+ 	for node in stdin stderr stdout null; do ln -s /dev/$${node} testing/dev/$${node}; done
+-	for cf in hosts resolv.conf passwd shadow group gshadow mtab fstab; do [ -f /etc/$${cf} ] && ln -s /etc/$${cf} testing/etc/$${cf}; done
++	for cf in hosts resolv.conf passwd shadow group gshadow mtab ; do [ -f /etc/$${cf} ] && ln -s /etc/$${cf} testing/etc/$${cf}; done
+ 	ln -s ../$(bindir) testing/usr/bin
+ 	for prog in gzip cat patch tar sh ln chmod rm mkdir uname grep sed find file mktemp cut sort diff touch; do p=`which $${prog}`; ln -s $${p} testing/$${p}; done
+ 	for d in /proc /sys /selinux /etc/selinux; do if [ -d $${d} ]; then ln -s $${d} testing/$${d}; fi; done
+--- a/tests/Makefile.in
++++ b/tests/Makefile.in
+@@ -612,7 +612,7 @@
+ 	cp -r ${srcdir}/data/ testing/
+ 	for d in dev etc magic tmp var; do if [ ! -d testing/$${d} ]; then mkdir testing/$${d}; fi; done
+ 	for node in stdin stderr stdout null; do ln -s /dev/$${node} testing/dev/$${node}; done
+-	for cf in hosts resolv.conf passwd shadow group gshadow mtab fstab; do [ -f /etc/$${cf} ] && ln -s /etc/$${cf} testing/etc/$${cf}; done
++	for cf in hosts resolv.conf passwd shadow group gshadow mtab ; do [ -f /etc/$${cf} ] && ln -s /etc/$${cf} testing/etc/$${cf}; done
+ 	ln -s ../$(bindir) testing/usr/bin
+ 	for prog in gzip cat patch tar sh ln chmod rm mkdir uname grep sed find file mktemp cut sort diff touch; do p=`which $${prog}`; ln -s $${p} testing/$${p}; done
+ 	for d in /proc /sys /selinux /etc/selinux; do if [ -d $${d} ]; then ln -s $${d} testing/$${d}; fi; done
