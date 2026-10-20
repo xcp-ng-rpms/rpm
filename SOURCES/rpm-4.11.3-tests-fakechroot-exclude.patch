@@ -1,0 +1,26 @@
+tests: Keep /dev, /proc, /sys and NSS softoken outside the fake root
+
+Origin: XCP-ng, written for the review of xcp-ng-rpms/rpm#3
+(2026-10-20). Not upstream: rpm 4.11.x is no longer maintained there.
+
+With fakechroot 2.20.1 (EPEL 7's fakechroot-2.20.1-2.el7) every runroot
+command fails with "error: Failed to initialize NSS library". A
+FAKECHROOT_DEBUG trace shows why: NSS opens /dev/urandom, reads
+/proc/sys/crypto/fips_enabled and dlopen()s libsoftokn3.so and
+libfreeblpriv3.so from /lib64 or /usr/lib64, and fakechroot redirects
+all of them into the test root, which has none of them.
+
+Listing them in FAKECHROOT_EXCLUDE_PATH makes them resolve on the build
+host. For /proc and /sys that is what the test root's existing symlinks
+to them already intend. No test reads or writes these paths.
+
+--- a/tests/atlocal.in
++++ b/tests/atlocal.in
+@@ -30,6 +30,6 @@
+ function runroot()
+ {
+     (unset RPM_CONFIGDIR RPM_POPTEXEC_PATH; cd ${RPMTEST} && \
+-     MAGIC="/magic/magic" FAKECHROOT_BASE="${RPMTEST}" fakechroot "$@" --define "_topdir /build" --noplugins
++     FAKECHROOT_EXCLUDE_PATH=/dev:/proc:/sys:/lib64/libsoftokn3.so:/usr/lib64/libsoftokn3.so:/lib64/libfreeblpriv3.so:/usr/lib64/libfreeblpriv3.so:/lib64/libfreebl3.so:/usr/lib64/libfreebl3.so MAGIC="/magic/magic" FAKECHROOT_BASE="${RPMTEST}" fakechroot "$@" --define "_topdir /build" --noplugins
+     )
+ }
