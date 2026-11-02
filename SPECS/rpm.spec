@@ -627,8 +627,8 @@ exit 0
 %doc COPYING doc/librpm/html/*
 
 %changelog
-* Thu Mar 26 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
-- Backport size limit remove on macros
+# * Thu Mar 26 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
+# - Backport size limit remove on macros
 
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
