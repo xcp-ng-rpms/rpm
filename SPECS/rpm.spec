@@ -27,7 +27,7 @@
 Summary: The RPM package management system
 Name: rpm
 Version: %{rpmver}
-Release: %{?snapver:0.%{snapver}.}32%{?dist}
+Release: %{?snapver:0.%{snapver}.}32.1%{?dist}
 Group: System Environment/Base
 Url: http://www.rpm.org/
 Source0: http://rpm.org/releases/rpm-4.11.x/%{name}-%{srcver}.tar.bz2
@@ -654,16 +654,16 @@ exit 0
 %doc COPYING doc/librpm/html/*
 
 %changelog
-# * Thu Mar 26 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
-# - Backport size limit remove on macros
-# - Fix %%patch macro for compatibility with RPM 4.20 and above (Philippe Coval)
-# - Add gcc to BuildRequires (Philippe Coval)
-# - Fix unversioned python (Philippe Coval)
-# - Run the test suite at build time, fixed for fakechroot >= 2.10
-#   (rpm-4.11.3-tests-fakechroot-paths.patch, backport of upstream
-#   5b8b2bdd3 and 394cbfb66; rpm-4.11.3-tests-fakechroot-exclude.patch;
-#   rpm-4.11.3-tests-no-fstab.patch, backport of upstream b953262298)
-# - Add tests for long macro expansions (rpm-4.11.3-tests-macro-size.patch)
+* Mon Nov 02 2026 Quentin Casasnovas <quentin.casasnovas@vates.tech> - 4.11.3-32.1
+- Backport size limit remove on macros
+- Fix %%patch macro for compatibility with RPM 4.20 and above (Philippe Coval)
+- Add gcc to BuildRequires (Philippe Coval)
+- Fix unversioned python (Philippe Coval)
+- Run the test suite at build time, fixed for fakechroot >= 2.10
+  (rpm-4.11.3-tests-fakechroot-paths.patch, backport of upstream
+  5b8b2bdd3 and 394cbfb66; rpm-4.11.3-tests-fakechroot-exclude.patch;
+  rpm-4.11.3-tests-no-fstab.patch, backport of upstream b953262298) (Samuel Verschelde)
+- Add tests for long macro expansions (rpm-4.11.3-tests-macro-size.patch) (Samuel Verschelde)
 
 * Mon Nov 13 2017 Panu Matilainen <pmatilai@redhat.com> - 4.11.3-32
 - Backport weak dependency tag definitions (#1508538)
